@@ -1,19 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Coflnet.Sky.Base.Models
+namespace Coflnet.Sky.Items.Models
 {
     /// <summary>
     /// <see cref="DbContext"/> For flip tracking
     /// </summary>
-    public class BaseDbContext : DbContext
+    public class ItemDbContext : DbContext
     {
-        public DbSet<Flip> Flips { get; set; }
+        public DbSet<Item> Items { get; set; }
 
         /// <summary>
-        /// Creates a new instance of <see cref="BaseDbContext"/>
+        /// Creates a new instance of <see cref="ItemDbContext"/>
         /// </summary>
         /// <param name="options"></param>
-        public BaseDbContext(DbContextOptions<BaseDbContext> options)
+        public ItemDbContext(DbContextOptions<ItemDbContext> options)
         : base(options)
         {
         }
@@ -26,9 +26,13 @@ namespace Coflnet.Sky.Base.Models
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Flip>(entity =>
+            modelBuilder.Entity<Item>(entity =>
             {
-                entity.HasIndex(e => new { e.AuctionId });
+                entity.HasIndex(e => e.Tag);
+            });
+            modelBuilder.Entity<Modifiers>(entity =>
+            {
+                entity.HasIndex(e => new { e.Slug, e.Value });
             });
         }
     }

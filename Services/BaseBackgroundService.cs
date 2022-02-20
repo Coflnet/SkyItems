@@ -1,6 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
-using Coflnet.Sky.Base.Models;
+using Coflnet.Sky.Items.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,9 +8,12 @@ using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using System.Linq;
 using Microsoft.Extensions.Logging;
-using Coflnet.Sky.Base.Controllers;
+using Coflnet.Sky.Items.Controllers;
+using hypixel;
+using System;
+using Newtonsoft.Json;
 
-namespace Coflnet.Sky.Base.Services
+namespace Coflnet.Sky.Items.Services
 {
 
     public class BaseBackgroundService : BackgroundService
@@ -35,21 +38,20 @@ namespace Coflnet.Sky.Base.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             using var scope = scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<BaseDbContext>();
+            var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
             // make sure all migrations are applied
             await context.Database.MigrateAsync();
 
-            var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<LowPricedAuction>(config["KAFKA_HOST"], config["TOPICS:LOW_PRICED"], async batch =>
+            if (!context.Items.Any())
+                await CopyOverItems(context);
+
+            var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
+                await Task.Delay(1000);
                 var service = GetService();
                 foreach (var lp in batch)
                 {
-                    await service.AddFlip(new Flip()
-                    {
-                        AuctionId = lp.UId,
-                        FinderType = lp.Finder,
-                        TargetPrice = lp.TargetPrice,
-                    });
+                    await service.AddItemDetailsForAuction(lp);
                 }
                 consumeCount.Inc(batch.Count());
             }, stoppingToken, "skybase");
@@ -57,9 +59,54 @@ namespace Coflnet.Sky.Base.Services
             await Task.WhenAll(flipCons);
         }
 
-        private BaseService GetService()
+        private static async Task CopyOverItems(ItemDbContext context)
         {
-            return scopeFactory.CreateScope().ServiceProvider.GetRequiredService<BaseService>();
+            using (var db = new HypixelContext())
+            {
+                var items = await db.Items.Include(i => i.Names).ToListAsync();
+                foreach (var dbItem in items)
+                {
+                    //dbItem.Names = dbItem.Names.Where(n => n.Name != null).ToList();
+                    try
+                    {
+                        var names = dbItem.Names.Select(i => new Modifiers()
+                        {
+                            FoundCount = i.OccuredTimes,
+                            Slug = "name",
+                            Type = Modifiers.DataType.STRING,
+                            Value = ItemReferences.RemoveReforgesAndLevel(i.Name)
+                        }).ToHashSet();
+                        var name = dbItem.Name;
+                        if (names.Count() > 0)
+                            name = dbItem.Names.MaxBy(i => i.OccuredTimes).Name;
+                        var item = new Item()
+                        {
+                            Tag = dbItem.Tag,
+                            Tier = dbItem.Tier,
+                            IconUrl = dbItem.IconUrl,
+                            Flags = ItemFlags.AUCTION,
+                            Descriptions = new System.Collections.Generic.HashSet<Description>(){new Description(){
+                                Text = dbItem.Description
+                            }},
+                            Modifiers = names,
+                            Name = name
+                        };
+                        context.Add(item);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(JsonConvert.SerializeObject(dbItem, Formatting.Indented));
+                        throw e;
+                    }
+
+                }
+                await context.SaveChangesAsync();
+            }
+        }
+
+        private ItemService GetService()
+        {
+            return scopeFactory.CreateScope().ServiceProvider.GetRequiredService<ItemService>();
         }
     }
 }
