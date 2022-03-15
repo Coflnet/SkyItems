@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 using System.Collections.Generic;
 using Newtonsoft.Json.Converters;
 using hypixel;
-using Microsoft.EntityFrameworkCore;
 
 namespace Coflnet.Sky.Items.Models
 {
@@ -67,12 +66,17 @@ namespace Coflnet.Sky.Items.Models
         /// For how much this item sells at npc
         /// </summary>
         /// <value></value>
-        public int NpcSellPrice { get; set; }
+        public float NpcSellPrice { get; set; }
         /// <summary>
         /// For how much this item can be bought from an npc
         /// </summary>
         /// <value></value>
-        public int NpcBuyPrice { get; set; }
+        public float NpcBuyPrice { get; set; }
+        /// <summary>
+        /// Durability property of item
+        /// </summary>
+        /// <value></value>
+        public short Durability { get; set; }
         /// <summary>
         /// Different flags for this item
         /// </summary>
@@ -90,16 +94,5 @@ namespace Coflnet.Sky.Items.Models
         /// <value></value>
         [DataMember(Name = "descriptions")]
         public HashSet<Description> Descriptions { get; set; }
-    }
-
-    public class Description
-    {
-        public int Id { get; set; }
-        public int Occurences { get; set; }
-        public Item Item { get; set; }
-
-        [MySqlCharSet("utf8")]
-        [DataMember(Name = "text")]
-        public string Text { get; set; }
     }
 }

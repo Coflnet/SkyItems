@@ -1,5 +1,12 @@
 namespace Coflnet.Sky.Items.Models
 {
+    /*
+    Retrieving items not fitting any category js filter
+    apiResponse.items.filter(a=>!a.category && !a.furniture && !a.generator && !a.id.endsWith("ISLAND_CRYSTAL")&& !a.id.endsWith("ISLAND")&& !a.id.endsWith("PERSONALITY")
+    && !a.id.endsWith("FRAGMENT")&& !a.id.endsWith("BACKPACK")&& !a.id.endsWith("_SACK")&& !a.id.endsWith("_PORTAL")
+    && (!a.requirements || !a.requirements.slayer) &&(!a.requirements || !a.requirements.heart_of_the_mountain) 
+    && !a.id.startsWith("ENCHANTED_") && !a.id.startsWith("TALISMAN_ENRICHMENT") && !a.dungeon_item && !a.name.endsWith("the Fish") )
+    */
     public enum ItemCategory
     {
         UNKNOWN,
@@ -32,6 +39,25 @@ namespace Coflnet.Sky.Items.Models
         /// <summary>
         /// Minions
         /// </summary>
-        GENERATOR
+        GENERATOR,
+        MINION_SKIN,
+        PRIVATE_ISLAND,
+        ISLAND_CRYSTAL,
+        FRAGMENT,
+        SLAYER,
+        /// <summary>
+        /// Items requiring dungeon level
+        /// </summary>
+        DUNGEON,
+        /// <summary>
+        /// Items optained in dungeons
+        /// </summary>
+        DUNGEON_ITEM,
+        SACK,
+        PORTAL,
+        DEEP_CAVERNS,
+        BACKPACK,
+        TALISMAN_ENRICHMENT,
+        THE_FISH
     }
 }
