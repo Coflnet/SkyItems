@@ -28,7 +28,7 @@ namespace Coflnet.Sky.Items.Models
 
             modelBuilder.Entity<Item>(entity =>
             {
-                entity.HasIndex(e => e.Tag);
+                entity.HasIndex(e => e.Tag).IsUnique();
             });
             modelBuilder.Entity<Modifiers>(entity =>
             {

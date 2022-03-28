@@ -2,7 +2,7 @@ using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
 using Newtonsoft.Json.Converters;
-using hypixel;
+using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Items.Models
 {
@@ -47,7 +47,7 @@ namespace Coflnet.Sky.Items.Models
         /// <value></value>
         [JsonConverter(typeof(StringEnumConverter))]
         [DataMember(Name = "tier")]
-        public hypixel.Tier Tier { get; set; }
+        public Tier Tier { get; set; }
         /// <summary>
         /// Fallback icon url
         /// </summary>

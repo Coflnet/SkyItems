@@ -9,10 +9,11 @@ using Microsoft.Extensions.Configuration;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Items.Controllers;
-using hypixel;
+using Coflnet.Sky.Core;
 using System;
 using Newtonsoft.Json;
 using RestSharp;
+using System.Collections.Generic;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -43,26 +44,45 @@ namespace Coflnet.Sky.Items.Services
             // make sure all migrations are applied
             await context.Database.MigrateAsync();
 
-            await DownloadFromApi(context);
 
             if (!context.Items.Any())
             {
                 await CopyOverItems(context);
-                
+                await DownloadFromApi(context);
             }
+            // bazaar is loaded every time as no events are consumed
+            await LoadBazaar(context);
 
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
                 await Task.Delay(1000);
                 var service = GetService();
+                var sum = 0;
                 foreach (var lp in batch)
                 {
-                    await service.AddItemDetailsForAuction(lp);
+                    sum += await service.AddItemDetailsForAuction(lp);
                 }
+                Console.WriteLine($"Info: updated {sum} entries");
                 consumeCount.Inc(batch.Count());
             }, stoppingToken, "skybase");
 
             await Task.WhenAll(flipCons);
+        }
+
+        private async Task LoadBazaar(ItemDbContext context)
+        {
+            var client = new RestClient("https://api.hypixel.net");
+            var request = new RestRequest("/skyblock/bazaar");
+            var responseJson = await client.ExecuteAsync(request);
+            var apiItems = JsonConvert.DeserializeObject<Models.Hypixel.BazaarResponse>(responseJson.Content);
+            var tags = apiItems.Products.Keys.ToHashSet();
+            var items = await context.Items.Where(i => tags.Contains(i.Tag)).ToListAsync();
+            foreach (var item in items)
+            {
+                item.Flags |= ItemFlags.BAZAAR;
+                context.Update(item);
+            }
+            await context.SaveChangesAsync();
         }
 
         private async Task DownloadFromApi(ItemDbContext context)
@@ -73,60 +93,112 @@ namespace Coflnet.Sky.Items.Services
             var items = JsonConvert.DeserializeObject<Models.Hypixel.HypixelItems>(responseJson.Content);
             foreach (var item in items.Items)
             {
-                var match = await context.Items.Where(i=>i.Tag == item.Id).Include(i=>i.Modifiers).FirstOrDefaultAsync();
+                var match = await context.Items.Where(i => i.Tag == item.Id).Include(i => i.Modifiers).FirstOrDefaultAsync();
+                if (match == null)
+                {
+                    match = new Item();
+                    match.Modifiers = new System.Collections.Generic.HashSet<Modifiers>();
+                    match.Tag = item.Id;
+                    context.Add(match);
+                }
                 match.Name = item.Name;
+                var parts = match.Name.Split(' ');
+                if (parts.Length > 1)
+                {
+                    var abr = string.Join("",parts.Select(p=>p[0]));
+                    match.Modifiers.Add(new Modifiers()
+                    {
+                        Slug = "abr",
+                        Value = abr
+                    });
+                }
                 match.NpcSellPrice = item.NpcSellPrice ?? -1;
                 match.MinecraftType = item.Material;
                 match.Durability = (short)item.Durability;
-                match.Tier = Enum.Parse<Tier>(item.Tier);
-                if(item.Glowing ?? false)
+                if (!string.IsNullOrEmpty(item.Tier))
+                    match.Tier = Enum.Parse<Tier>(item.Tier);
+                if (item.Glowing ?? false)
                     match.Flags |= ItemFlags.GLOWING;
-                if(item.Museum)
+                if (item.Museum)
                     match.Flags |= ItemFlags.MUSEUM;
-                if(item.Skin != null)
+                if (item.Skin != null)
                 {
-                    if(!match.Modifiers.Where(m=>m.Slug == "skin").Any())
-                        match.Modifiers.Add(new Modifiers()
+                    try
+                    {
+                        var skinString = item.Skin;
+                        string id;
+                        try
                         {
-                            Slug = "skin",
-                            Type = Modifiers.DataType.STRING,
-                            Value = item.Skin
-                        });
+                            id = GetId(skinString);
+                        }
+                        catch
+                        {
+                            try
+                            {
+                                id = GetId(skinString + "=");
+                            }
+                            catch
+                            {
+                                id = GetId(skinString + "==");
+                            }
+                        }
+                        if (!match.Modifiers.Where(m => m.Slug == "skin").Any())
+                            match.Modifiers.Add(new Modifiers()
+                            {
+                                Slug = "skin",
+                                Type = Modifiers.DataType.STRING,
+                                Value = id
+                            });
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine(item.Id);
+                        throw;
+                    }
+
                 }
-                if(Enum.TryParse<ItemCategory>(item.Category,true, out ItemCategory cat))
-                    match.Category = cat;
-                else if(item.Furniture != null)
-                    match.Category = ItemCategory.FURNITURE;
-                else if(item.Generator != null)
-                    match.Category = ItemCategory.GENERATOR;
-                else if(item.Id.EndsWith("_PERSONALITY"))
+                if (item.Id.EndsWith("_PERSONALITY"))
                     match.Category = ItemCategory.MINION_SKIN;
-                else if(item.Id.EndsWith("_ISLAND"))
+                else if (Enum.TryParse<ItemCategory>(item.Category, true, out ItemCategory cat))
+                    match.Category = cat;
+                else if (item.Furniture != null)
+                    match.Category = ItemCategory.FURNITURE;
+                else if (item.Generator != null)
+                    match.Category = ItemCategory.GENERATOR;
+                else if (item.Id.EndsWith("_ISLAND"))
                     match.Category = ItemCategory.PRIVATE_ISLAND;
-                else if(item.Id.EndsWith("_ISLAND_CRYSTAL"))
+                else if (item.Id.EndsWith("_ISLAND_CRYSTAL"))
                     match.Category = ItemCategory.ISLAND_CRYSTAL;
-                else if(item.Id.EndsWith("_FRAGMENT"))
+                else if (item.Id.EndsWith("_FRAGMENT"))
                     match.Category = ItemCategory.FRAGMENT;
-                else if(item.Requirements?.Slayer != null)
+                else if (item.Requirements?.Slayer != null)
                     match.Category = ItemCategory.SLAYER;
-                else if(item.Requirements?.Dungeon != null)
+                else if (item.Requirements?.Dungeon != null)
                     match.Category = ItemCategory.DUNGEON;
-                else if(item.Requirements?.HeartOfTheMountain != null)
+                else if (item.Requirements?.HeartOfTheMountain != null)
                     match.Category = ItemCategory.DEEP_CAVERNS;
-                else if(item.Id.EndsWith("_SACK"))
+                else if (item.Id.EndsWith("_SACK"))
                     match.Category = ItemCategory.SACK;
-                else if(item.Id.EndsWith("_PORTAL"))
+                else if (item.Id.EndsWith("_PORTAL"))
                     match.Category = ItemCategory.PORTAL;
-                else if(item.Id.EndsWith("_BACKPACK"))
+                else if (item.Id.EndsWith("_BACKPACK"))
                     match.Category = ItemCategory.BACKPACK;
-                else if(item.DungeonItem ?? false)
+                else if (item.DungeonItem ?? false)
                     match.Category = ItemCategory.DUNGEON_ITEM;
-                else if(item.Id.EndsWith("TALISMAN_ENRICHMENT"))
+                else if (item.Id.EndsWith("TALISMAN_ENRICHMENT"))
                     match.Category = ItemCategory.TALISMAN_ENRICHMENT;
-                else if(item.Id.EndsWith("THE_FISH"))
+                else if (item.Id.EndsWith("THE_FISH"))
                     match.Category = ItemCategory.THE_FISH;
 
             }
+            await context.SaveChangesAsync();
+        }
+
+        private static string GetId(string skinString)
+        {
+            dynamic skinData = JsonConvert.DeserializeObject(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(skinString)));
+            var id = ((string)skinData.textures.SKIN.url).Replace("http://textures.minecraft.net/texture/", "");
+            return id;
         }
 
         private static async Task CopyOverItems(ItemDbContext context)
@@ -154,7 +226,7 @@ namespace Coflnet.Sky.Items.Services
                             Tag = dbItem.Tag,
                             Tier = dbItem.Tier,
                             IconUrl = dbItem.IconUrl,
-                            Flags = ItemFlags.AUCTION,
+                            Flags = dbItem.IsBazaar ? ItemFlags.BAZAAR : ItemFlags.AUCTION,
                             Descriptions = new System.Collections.Generic.HashSet<Description>(){new Description(){
                                 Text = dbItem.Description
                             }},

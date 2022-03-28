@@ -3,7 +3,7 @@ using Coflnet.Sky.Items.Models;
 using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using hypixel;
+using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -16,7 +16,7 @@ namespace Coflnet.Sky.Items.Services
             this.db = db;
         }
 
-        public async Task AddItemDetailsForAuction(SaveAuction auction)
+        public async Task<int> AddItemDetailsForAuction(SaveAuction auction)
         {
             var tag = auction.Tag;
             var item = await db.Items.Where(i => i.Tag == tag).FirstOrDefaultAsync();
@@ -36,31 +36,10 @@ namespace Coflnet.Sky.Items.Services
             }
             // sample 
             if (auction.UId % 5 != 1)
-                return;
+                return 0;
 
-            item = await db.Items.Where(i => i.Tag == tag).Include(i => i.Modifiers).Include(i => i.Descriptions).FirstOrDefaultAsync();
-            foreach (var nbtField in auction.FlatenedNBT)
-            {
-                var list = item.Modifiers.Where(m => m.Slug == nbtField.Key).ToList();
-                var value = list.Where(m => m.Value == nbtField.Value).FirstOrDefault();
-                if (value != null)
-                {
-                    value.FoundCount++;
-                    db.Update(value);
-                    continue;
-                }
-                if (list.Count >= 200)
-                    continue; // too many values already
-                value = new Modifiers()
-                {
-                    Slug = nbtField.Key,
-                    Value = nbtField.Value,
-                    Type = long.TryParse(nbtField.Value, out _) ? Modifiers.DataType.LONG : Modifiers.DataType.STRING
-                };
-                item.Modifiers.Add(value);
-                db.Add(value);
-                db.Update(item);
-            }
+            item = await db.Items.Where(i => i.Tag == tag).Include(i => i.Modifiers).Include(i => i.Descriptions).AsSplitQuery().FirstOrDefaultAsync();
+            UpdateModifiers(auction, item);
             var name = ItemReferences.RemoveReforgesAndLevel(auction.ItemName);
             var nameProp = item.Modifiers.Where(m => m.Slug == "name" && m.Value == name).FirstOrDefault();
             if (nameProp == null)
@@ -82,8 +61,7 @@ namespace Coflnet.Sky.Items.Services
 
             if (auction.UId % 5 != 1 || !auction.Context.ContainsKey("lore"))
             {
-                await db.SaveChangesAsync();
-                return;
+                return await db.SaveChangesAsync();
             }
             var text = auction.Context["lore"];
             var descMatch = item.Descriptions.Where(d => d.Text == text).FirstOrDefault();
@@ -102,7 +80,39 @@ namespace Coflnet.Sky.Items.Services
                 item.Descriptions.Add(descMatch);
                 db.Add(descMatch);
             }
-            await db.SaveChangesAsync();
+            return await db.SaveChangesAsync();
+        }
+
+        private void UpdateModifiers(SaveAuction auction, Item item)
+        {
+            foreach (var nbtField in auction.FlatenedNBT)
+            {
+                var list = item.Modifiers.Where(m => m.Slug == nbtField.Key).ToList();
+                var value = list.Where(m => m.Value == nbtField.Value).FirstOrDefault();
+                if (value != null)
+                {
+                    value.FoundCount++;
+                    db.Update(value);
+                    continue;
+                }
+                if (list.Count >= 200)
+                {
+                    var neverReoccured = list.Where(l => l.FoundCount == 0).FirstOrDefault();
+                    if (neverReoccured == null)
+                        continue; // too many values already
+                    
+                    db.Remove(neverReoccured);
+                }
+                value = new Modifiers()
+                {
+                    Slug = nbtField.Key,
+                    Value = nbtField.Value,
+                    Type = long.TryParse(nbtField.Value, out _) ? Modifiers.DataType.LONG : Modifiers.DataType.STRING
+                };
+                item.Modifiers.Add(value);
+                db.Add(value);
+                db.Update(item);
+            }
         }
     }
 }

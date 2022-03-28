@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using Coflnet.Sky.Items.Models;
 using Coflnet.Sky.Items.Services;
-using hypixel;
+using Coflnet.Sky.Core;
 using Jaeger.Samplers;
 using Jaeger.Senders;
 using Jaeger.Senders.Thrift;
@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Newtonsoft.Json.Converters;
 using OpenTracing;
 using OpenTracing.Util;
 using Prometheus;
@@ -33,7 +34,7 @@ namespace Coflnet.Sky.Items
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllers().AddNewtonsoftJson(opts => opts.SerializerSettings.Converters.Add(new StringEnumConverter()));
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyItems", Version = "v1" });

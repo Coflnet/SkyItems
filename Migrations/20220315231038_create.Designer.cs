@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace SkyItems.Migrations
 {
     [DbContext(typeof(ItemDbContext))]
-    [Migration("20220220214403_create")]
+    [Migration("20220315231038_create")]
     partial class create
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -54,6 +54,9 @@ namespace SkyItems.Migrations
                     b.Property<int>("Category")
                         .HasColumnType("int");
 
+                    b.Property<short>("Durability")
+                        .HasColumnType("smallint");
+
                     b.Property<int>("Flags")
                         .HasColumnType("int");
 
@@ -68,11 +71,11 @@ namespace SkyItems.Migrations
                         .HasMaxLength(44)
                         .HasColumnType("varchar(44)");
 
-                    b.Property<int>("NpcBuyPrice")
-                        .HasColumnType("int");
+                    b.Property<float>("NpcBuyPrice")
+                        .HasColumnType("float");
 
-                    b.Property<int>("NpcSellPrice")
-                        .HasColumnType("int");
+                    b.Property<float>("NpcSellPrice")
+                        .HasColumnType("float");
 
                     b.Property<string>("Tag")
                         .HasMaxLength(44)
@@ -83,7 +86,8 @@ namespace SkyItems.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Tag");
+                    b.HasIndex("Tag")
+                        .IsUnique();
 
                     b.ToTable("Items");
                 });

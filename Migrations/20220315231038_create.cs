@@ -28,8 +28,9 @@ namespace SkyItems.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     MinecraftType = table.Column<string>(type: "varchar(25)", maxLength: 25, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    NpcSellPrice = table.Column<int>(type: "int", nullable: false),
-                    NpcBuyPrice = table.Column<int>(type: "int", nullable: false),
+                    NpcSellPrice = table.Column<float>(type: "float", nullable: false),
+                    NpcBuyPrice = table.Column<float>(type: "float", nullable: false),
+                    Durability = table.Column<short>(type: "smallint", nullable: false),
                     Flags = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -93,7 +94,8 @@ namespace SkyItems.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Items_Tag",
                 table: "Items",
-                column: "Tag");
+                column: "Tag",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Modifiers_ItemId",

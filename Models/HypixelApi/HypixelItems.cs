@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Items.Models.Hypixel
 {
-
     public class Stats
     {
         [JsonProperty("DAMAGE")]
@@ -62,10 +61,10 @@ namespace Coflnet.Sky.Items.Models.Hypixel
 
         [JsonProperty("skill")]
         public Skill Skill { get; set; }
-        
+
         [JsonProperty("slayer")]
         public Slayer Slayer { get; set; }
-        
+
         [JsonProperty("heart_of_the_mountain")]
         public HeartOfTheMountain HeartOfTheMountain { get; set; }
     }
@@ -73,10 +72,10 @@ namespace Coflnet.Sky.Items.Models.Hypixel
     public class HeartOfTheMountain
     {
         [JsonProperty("tier")]
-        public int Tier {get;set;}
+        public int Tier { get; set; }
     }
 
-        public class Slayer
+    public class Slayer
     {
         [JsonProperty("slayer_boss_type")]
         public string SlayerBossType { get; set; }
@@ -145,7 +144,7 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         public Stats Stats { get; set; }
 
         [JsonProperty("npc_sell_price")]
-        public int? NpcSellPrice { get; set; }
+        public float? NpcSellPrice { get; set; }
 
         [JsonProperty("unstackable")]
         public bool? Unstackable { get; set; }
