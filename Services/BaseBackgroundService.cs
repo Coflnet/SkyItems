@@ -47,6 +47,8 @@ namespace Coflnet.Sky.Items.Services
 
             if (!context.Items.Any())
             {
+                await Task.Delay(1000);
+                logger.LogInformation("migrating old db");
                 await CopyOverItems(context);
                 await DownloadFromApi(context);
             }
@@ -223,6 +225,7 @@ namespace Coflnet.Sky.Items.Services
                             name = dbItem.Names.MaxBy(i => i.OccuredTimes).Name;
                         var item = new Item()
                         {
+                            Id = dbItem.Id,
                             Tag = dbItem.Tag,
                             Tier = dbItem.Tier,
                             IconUrl = dbItem.IconUrl,
