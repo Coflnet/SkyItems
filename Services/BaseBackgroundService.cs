@@ -6,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Items.Controllers;
 using Coflnet.Sky.Core;
@@ -14,6 +13,7 @@ using System;
 using Newtonsoft.Json;
 using RestSharp;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -39,10 +39,10 @@ namespace Coflnet.Sky.Items.Services
         /// <returns></returns>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            using var scope = scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
             // make sure all migrations are applied
-            await context.Database.MigrateAsync();
+            await Migrate();
+            using var scope = scopeFactory.CreateScope();
+            using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
 
 
             if (!context.Items.Any())
@@ -50,25 +50,31 @@ namespace Coflnet.Sky.Items.Services
                 await Task.Delay(1000);
                 logger.LogInformation("migrating old db");
                 await CopyOverItems(context);
-                await DownloadFromApi(context);
             }
+            await DownloadFromApi(context);
             // bazaar is loaded every time as no events are consumed
             await LoadBazaar(context);
 
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
-                await Task.Delay(1000);
+                await Task.Delay(100);
                 var service = GetService();
                 var sum = 0;
-                foreach (var lp in batch)
-                {
-                    sum += await service.AddItemDetailsForAuction(lp);
-                }
+                sum = await service.AddItemDetailsForAuctions(batch);
+                
                 Console.WriteLine($"Info: updated {sum} entries");
                 consumeCount.Inc(batch.Count());
-            }, stoppingToken, "skybase");
+            }, stoppingToken, "skybase", 200);
 
             await Task.WhenAll(flipCons);
+        }
+
+        private async Task Migrate()
+        {
+            using var scope = scopeFactory.CreateScope();
+            using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
+            // make sure all migrations are applied
+            await context.Database.MigrateAsync();
         }
 
         private async Task LoadBazaar(ItemDbContext context)
@@ -93,9 +99,20 @@ namespace Coflnet.Sky.Items.Services
             var request = new RestRequest("/resources/skyblock/items");
             var responseJson = await client.ExecuteAsync(request);
             var items = JsonConvert.DeserializeObject<Models.Hypixel.HypixelItems>(responseJson.Content);
-            foreach (var item in items.Items)
+            foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(items.Items, 50))
             {
-                var match = await context.Items.Where(i => i.Tag == item.Id).Include(i => i.Modifiers).FirstOrDefaultAsync();
+                await UpdateApiBatch(context, batch);
+            }
+            logger.LogInformation("updated api items");
+        }
+
+        private static async Task UpdateApiBatch(ItemDbContext context, IEnumerable<Models.Hypixel.Item> batch)
+        {
+            var batchLookup = batch.Select(b => b.Id).ToList();
+            var batchInternal = await context.Items.Where(i => batchLookup.Contains(i.Tag)).Include(i => i.Modifiers).ToListAsync();
+            foreach (var item in batch)
+            {
+                var match = batchInternal.Where(i => i.Tag == item.Id).FirstOrDefault();
                 if (match == null)
                 {
                     match = new Item();
@@ -105,9 +122,9 @@ namespace Coflnet.Sky.Items.Services
                 }
                 match.Name = item.Name;
                 var parts = match.Name.Split(' ');
-                if (parts.Length > 1)
+                if (parts.Length > 1 && !match.Modifiers.Where(m => m.Slug == "abr").Any())
                 {
-                    var abr = string.Join("",parts.Select(p=>p[0]));
+                    var abr = string.Join("", parts.Select(p => p[0]));
                     match.Modifiers.Add(new Modifiers()
                     {
                         Slug = "abr",
@@ -191,7 +208,6 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.TALISMAN_ENRICHMENT;
                 else if (item.Id.EndsWith("THE_FISH"))
                     match.Category = ItemCategory.THE_FISH;
-
             }
             await context.SaveChangesAsync();
         }

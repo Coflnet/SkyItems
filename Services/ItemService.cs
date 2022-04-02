@@ -4,41 +4,69 @@ using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Core;
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Items.Services
 {
     public class ItemService
     {
         private ItemDbContext db;
+        private ILogger<ItemService> logger;
 
-        public ItemService(ItemDbContext db)
+        public ItemService(ItemDbContext db, ILogger<ItemService> logger)
         {
             this.db = db;
+            this.logger = logger;
         }
 
-        public async Task<int> AddItemDetailsForAuction(SaveAuction auction)
+        public async Task<int> AddItemDetailsForAuctions(IEnumerable<SaveAuction> auctions)
         {
-            var tag = auction.Tag;
-            var item = await db.Items.Where(i => i.Tag == tag).FirstOrDefaultAsync();
-            if (item == null)
+            var tags = auctions.Select(a => a.Tag).Distinct().ToHashSet();
+            var items = await db.Items.Where(i => tags.Contains(i.Tag)).Select(i => i.Tag).ToListAsync();
+            foreach (var auction in auctions.ExceptBy(items, i => i.Tag))
             {
-                item = new Item()
+                var item = new Item()
                 {
                     Flags = ItemFlags.AUCTION,
                     Name = auction.ItemName,
-                    Tag = tag,
+                    Tag = auction.Tag,
                     Tier = auction.Tier
                 };
                 Enum.TryParse(auction.Category.ToString(), out ItemCategory category);
                 item.Category = category;
                 db.Add(item);
-                await db.SaveChangesAsync();
+                Console.WriteLine("adding item " + item.Tag);
             }
-            // sample 
-            if (auction.UId % 5 != 1)
-                return 0;
+            var count = await db.SaveChangesAsync();
 
-            item = await db.Items.Where(i => i.Tag == tag).Include(i => i.Modifiers).Include(i => i.Descriptions).AsSplitQuery().FirstOrDefaultAsync();
+            for (int i = 0; i < 3; i++)
+                try
+                {
+                    var itemsSample = auctions.Take(auctions.Count() / 5);
+                    var sampleTags = itemsSample.Select(i => i.Tag).ToHashSet();
+                    var itemsWithDetails = await db.Items.Where(i => sampleTags.Contains(i.Tag))
+                        .Include(i => i.Modifiers)
+                        .Include(i => i.Descriptions)
+                        .AsSplitQuery().ToListAsync();
+                    foreach (var auction in itemsSample)
+                    {
+                        AddItemDetailsForAuction(auction, itemsWithDetails);
+                    }
+                    return count + await db.SaveChangesAsync();
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "saving batch sample");
+                }
+
+            return count;
+        }
+
+        private void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
+        {
+            var tag = auction.Tag;
+            var item = itemsWithDetails.Where(i => i.Tag == tag).FirstOrDefault();
             UpdateModifiers(auction, item);
             var name = ItemReferences.RemoveReforgesAndLevel(auction.ItemName);
             var nameProp = item.Modifiers.Where(m => m.Slug == "name" && m.Value == name).FirstOrDefault();
@@ -61,7 +89,7 @@ namespace Coflnet.Sky.Items.Services
 
             if (auction.UId % 5 != 1 || !auction.Context.ContainsKey("lore"))
             {
-                return await db.SaveChangesAsync();
+                return;
             }
             var text = auction.Context["lore"];
             var descMatch = item.Descriptions.Where(d => d.Text == text).FirstOrDefault();
@@ -80,7 +108,6 @@ namespace Coflnet.Sky.Items.Services
                 item.Descriptions.Add(descMatch);
                 db.Add(descMatch);
             }
-            return await db.SaveChangesAsync();
         }
 
         private void UpdateModifiers(SaveAuction auction, Item item)
@@ -100,7 +127,7 @@ namespace Coflnet.Sky.Items.Services
                     var neverReoccured = list.Where(l => l.FoundCount == 0).FirstOrDefault();
                     if (neverReoccured == null)
                         continue; // too many values already
-                    
+
                     db.Remove(neverReoccured);
                 }
                 value = new Modifiers()
