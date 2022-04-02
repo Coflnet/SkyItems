@@ -44,7 +44,7 @@ namespace Coflnet.Sky.Items.Controllers
             return Enum.GetValues<ItemCategory>();
         }
         /// <summary>
-        /// Returns all available categories
+        /// All tags of items on the bazaar
         /// </summary>
         /// <returns></returns>
         [HttpGet]
@@ -54,6 +54,18 @@ namespace Coflnet.Sky.Items.Controllers
         {
             return await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.BAZAAR)).Select(i => i.Tag).ToListAsync();
         }
+        /// <summary>
+        /// Tags to item ids maping
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [Route("ids")]
+        public async Task<Dictionary<string,int>> InternalIds()
+        {
+            return await context.Items.Select(i => new {i.Tag, i.Id }).ToDictionaryAsync(i=>i.Tag,i=>i.Id);
+        }
+
         /// <summary>
         /// Searches for an item
         /// </summary>
@@ -78,15 +90,15 @@ namespace Coflnet.Sky.Items.Controllers
                     Flags = item.Flags
                 };
             });
-
         }
+
         /// <summary>
         /// Retrieves the item id for an item
         /// </summary>
         /// <returns></returns>
         [HttpGet]
         [Route("search/{term}/id")]
-        [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<int> GetId(string term)
         {
             IOrderedQueryable<Item> select = GetSelectForQueryTerm(term);
