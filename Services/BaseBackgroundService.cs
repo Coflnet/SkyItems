@@ -64,7 +64,7 @@ namespace Coflnet.Sky.Items.Services
                 
                 Console.WriteLine($"Info: updated {sum} entries");
                 consumeCount.Inc(batch.Count());
-            }, stoppingToken, "skybase", 200);
+            }, stoppingToken, "sky-items", 200);
 
             await Task.WhenAll(flipCons);
         }

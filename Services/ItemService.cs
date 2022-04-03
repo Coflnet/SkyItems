@@ -58,6 +58,9 @@ namespace Coflnet.Sky.Items.Services
                 catch (Exception e)
                 {
                     logger.LogError(e, "saving batch sample");
+                    await Task.Delay(250);
+                    if (i == 2)
+                        throw e;
                 }
 
             return count;
