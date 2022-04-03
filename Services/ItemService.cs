@@ -100,7 +100,8 @@ namespace Coflnet.Sky.Items.Services
             if (descMatch != null)
             {
                 descMatch.Occurences++;
-                db.Update(descMatch);
+                if (descMatch.Id != 0)
+                    db.Update(descMatch);
             }
             else
             {
