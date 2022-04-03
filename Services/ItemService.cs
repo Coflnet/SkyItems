@@ -66,7 +66,7 @@ namespace Coflnet.Sky.Items.Services
             return count;
         }
 
-        private void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
+        private async void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
         {
             var tag = auction.Tag;
             var item = itemsWithDetails.Where(i => i.Tag == tag).FirstOrDefault();
@@ -87,7 +87,8 @@ namespace Coflnet.Sky.Items.Services
             else
             {
                 nameProp.FoundCount++;
-                db.Update(nameProp);
+                if (nameProp.Id != 0)
+                    db.Update(nameProp);
             }
 
             if (auction.UId % 5 != 1 || !auction.Context.ContainsKey("lore"))
@@ -122,7 +123,8 @@ namespace Coflnet.Sky.Items.Services
                 if (value != null)
                 {
                     value.FoundCount++;
-                    db.Update(value);
+                    if (value.Id != 0)
+                        db.Update(value);
                     continue;
                 }
                 if (list.Count >= 200)
