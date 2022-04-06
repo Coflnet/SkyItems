@@ -61,9 +61,21 @@ namespace Coflnet.Sky.Items.Controllers
         [HttpGet]
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         [Route("ids")]
-        public async Task<Dictionary<string,int>> InternalIds()
+        public async Task<Dictionary<string, int>> InternalIds()
         {
-            return await context.Items.Select(i => new {i.Tag, i.Id }).ToDictionaryAsync(i=>i.Tag,i=>i.Id);
+            return await context.Items.Select(i => new { i.Tag, i.Id }).ToDictionaryAsync(i => i.Tag, i => i.Id);
+        }
+        /// <summary>
+        /// Tags to item ids maping
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [Route("/item/{itemTag}/modifiers")]
+        public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
+        {
+            var modifiers = await context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).Select(i => i.Modifiers).FirstOrDefaultAsync();
+            return modifiers.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).ToHashSet());
         }
 
         /// <summary>
@@ -78,7 +90,16 @@ namespace Coflnet.Sky.Items.Controllers
             IOrderedQueryable<Item> select = GetSelectForQueryTerm(term);
             var prospects = await select
                     .Take(count)
-                    .Select(i => new { i.Name, i.Tag, i.Flags })
+                    .Select(i => new
+                    {
+                        Name = i.Name == null ?
+                        i.Modifiers.Where(m => m.Slug == "name" && m.Value != null)
+                        .OrderByDescending(m => m.FoundCount)
+                        .Select(m => m.Value).FirstOrDefault()
+                        : i.Name,
+                        i.Tag,
+                        i.Flags
+                    })
                     .AsSplitQuery()
                     .ToListAsync();
             return prospects.Select(item =>

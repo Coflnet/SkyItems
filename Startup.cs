@@ -19,6 +19,7 @@ using Newtonsoft.Json.Converters;
 using OpenTracing;
 using OpenTracing.Util;
 using Prometheus;
+using System.Text.Json.Serialization;
 
 namespace Coflnet.Sky.Items
 {
@@ -34,7 +35,7 @@ namespace Coflnet.Sky.Items
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers().AddNewtonsoftJson(opts => opts.SerializerSettings.Converters.Add(new StringEnumConverter()));
+            services.AddControllers().AddJsonOptions(opts => opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyItems", Version = "v1" });
