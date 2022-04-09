@@ -84,12 +84,12 @@ namespace Coflnet.Sky.Items.Controllers
         /// <returns></returns>
         [HttpGet]
         [Route("search/{term}")]
-        [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<SearchResult>> Search(string term, int count = 20)
         {
-            IOrderedQueryable<Item> select = GetSelectForQueryTerm(term);
+            var select = GetSelectForQueryTerm(term);
             var prospects = await select
-                    .Take(count)
+                    .Take(count * 3)
                     .Select(i => new
                     {
                         Name = i.Name == null ?
@@ -147,7 +147,7 @@ namespace Coflnet.Sky.Items.Controllers
                         ).Any()
                         || EF.Functions.Like(item.Tag, tagified + '%')
                         || item.Id == numericId
-                    ).OrderBy(item => item.Name.Length / 2 - (item.Name == clearedSearch ? 10000000 : 0));
+                    ).OrderBy(item => item.Name.Length / 2 - (item.Name.StartsWith(clearedSearch) ? 10000 : 0) - (item.Name == clearedSearch ? 10000000 : 0));
             return select;
         }
     }
