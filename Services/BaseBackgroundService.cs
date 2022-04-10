@@ -52,8 +52,16 @@ namespace Coflnet.Sky.Items.Services
                 await CopyOverItems(context);
             }
             await DownloadFromApi(context);
-            // bazaar is loaded every time as no events are consumed
-            await LoadBazaar(context);
+            try
+            {
+                // bazaar is loaded every time as no bazaar events are consumed
+                await LoadBazaar(context);
+                logger.LogInformation("loaded bazaar data");
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "loading bazaar data");
+            }
 
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
@@ -61,7 +69,7 @@ namespace Coflnet.Sky.Items.Services
                 var service = GetService();
                 var sum = 0;
                 sum = await service.AddItemDetailsForAuctions(batch);
-                
+
                 Console.WriteLine($"Info: updated {sum} entries");
                 consumeCount.Inc(batch.Count());
             }, stoppingToken, "sky-items", 200);
