@@ -43,7 +43,7 @@ namespace Coflnet.Sky.Items.Services
             for (int i = 0; i < 3; i++)
                 try
                 {
-                    var itemsSample = auctions.Take(auctions.Count() / 5);
+                    var itemsSample = auctions.Take(auctions.Count() / 2);
                     var sampleTags = itemsSample.Select(i => i.Tag).ToHashSet();
                     var itemsWithDetails = await db.Items.Where(i => sampleTags.Contains(i.Tag))
                         .Include(i => i.Modifiers)
@@ -57,10 +57,11 @@ namespace Coflnet.Sky.Items.Services
                 }
                 catch (Exception e)
                 {
-                    logger.LogError(e, "saving batch sample");
-                    await Task.Delay(250);
+                    if (i > 0)
+                        logger.LogError(e, "saving batch sample");
+                    await Task.Delay(new Random().Next(100, 1500));
                     if (i == 2)
-                        throw e;
+                        logger.LogInformation("giving up retry");
                 }
 
             return count;
