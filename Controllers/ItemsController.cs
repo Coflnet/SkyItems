@@ -37,6 +37,18 @@ namespace Coflnet.Sky.Items.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
+        [Route("category/{category}/items")]
+        [ResponseCache(Duration = 3600/2, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<string>> GetItemsForCategory(ItemCategory category)
+        {
+            return await context.Items.Where(c=>c.Category == category).Select(i=>i.Tag).ToListAsync();
+        }
+
+        /// <summary>
+        /// Returns all available categories
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
         [Route("categories")]
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
         public IEnumerable<ItemCategory> AddDetailsForAuction()
@@ -153,7 +165,6 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Tag, tagified + '%')
                         || item.Id == numericId
                     ).OrderBy(item => item.Name.Length / 2 - (item.Name.StartsWith(clearedSearch) ? 10000 : 0) - (item.Name == clearedSearch ? 10000000 : 0));
-            Console.WriteLine(select.ToQueryString());
             return select;
         }
     }
