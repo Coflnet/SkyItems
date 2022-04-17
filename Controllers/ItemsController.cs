@@ -107,10 +107,15 @@ namespace Coflnet.Sky.Items.Controllers
                 return new SearchResult()
                 {
                     Tag = item.Tag,
-                    Text = item.Name,
+                    Text = CleanName(item.Name),
                     Flags = item.Flags
                 };
             });
+        }
+
+        private string CleanName(string fullName)
+        {
+            return Sky.Core.ItemReferences.RemoveReforgesAndLevel(fullName);
         }
 
         /// <summary>
@@ -133,8 +138,8 @@ namespace Coflnet.Sky.Items.Controllers
             var clearedSearch = term;
             short.TryParse(term, out short numericId);
             var tagified = term.ToUpper().Replace(' ', '_');
-            if (tagified.EndsWith("_pet"))
-                tagified = "PET_" + tagified.Replace("_pet", "");
+            if (tagified.EndsWith("_PET"))
+                tagified = "PET_" + tagified.Replace("_PET", "");
             var namingModifiers = new HashSet<string>() { "name", "alias", "abr" };
             var select = context.Items
                     .Include(item => item.Modifiers)
@@ -148,6 +153,7 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Tag, tagified + '%')
                         || item.Id == numericId
                     ).OrderBy(item => item.Name.Length / 2 - (item.Name.StartsWith(clearedSearch) ? 10000 : 0) - (item.Name == clearedSearch ? 10000000 : 0));
+            Console.WriteLine(select.ToQueryString());
             return select;
         }
     }

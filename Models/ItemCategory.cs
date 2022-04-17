@@ -58,6 +58,10 @@ namespace Coflnet.Sky.Items.Models
         DEEP_CAVERNS,
         BACKPACK,
         TALISMAN_ENRICHMENT,
-        THE_FISH
+        THE_FISH,
+        /// <summary>
+        /// introduced late 
+        /// </summary>
+        PET
     }
 }
