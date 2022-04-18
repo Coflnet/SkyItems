@@ -216,6 +216,10 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.TALISMAN_ENRICHMENT;
                 else if (item.Id.EndsWith("THE_FISH"))
                     match.Category = ItemCategory.THE_FISH;
+                else if (item.Id.StartsWith("PET_SKIN"))
+                    match.Category = ItemCategory.PET_SKIN;
+                else if (item.Id.StartsWith("PET_"))
+                    match.Category = ItemCategory.PET;
             }
             await context.SaveChangesAsync();
         }

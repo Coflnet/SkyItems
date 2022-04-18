@@ -62,6 +62,7 @@ namespace Coflnet.Sky.Items.Models
         /// <summary>
         /// introduced late 
         /// </summary>
-        PET
+        PET,
+        PET_SKIN
     }
 }
