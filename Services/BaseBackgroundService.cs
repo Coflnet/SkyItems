@@ -98,6 +98,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Flags |= ItemFlags.BAZAAR;
                 context.Update(item);
             }
+            consumeCount.Inc(items.Count / 10);
             await context.SaveChangesAsync();
         }
 
@@ -110,6 +111,7 @@ namespace Coflnet.Sky.Items.Services
             foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(items.Items, 50))
             {
                 await UpdateApiBatch(context, batch);
+                consumeCount.Inc();
             }
             logger.LogInformation("updated api items");
         }
