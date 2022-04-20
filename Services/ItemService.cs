@@ -76,6 +76,10 @@ namespace Coflnet.Sky.Items.Services
             UpdateModifiers(auction, item);
             var name = ItemReferences.RemoveReforgesAndLevel(auction.ItemName);
             var nameProp = item.Modifiers.Where(m => m.Slug == "name" && m.Value == name).FirstOrDefault();
+            // this has been seen on auction now
+            if(!item.Flags.HasFlag(ItemFlags.AUCTION))
+                item.Flags |= ItemFlags.AUCTION;
+
             if (nameProp == null)
             {
                 nameProp = new Modifiers()
