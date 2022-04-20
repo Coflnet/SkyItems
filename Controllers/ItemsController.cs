@@ -75,7 +75,7 @@ namespace Coflnet.Sky.Items.Controllers
         [Route("ids")]
         public async Task<Dictionary<string, int>> InternalIds()
         {
-            return await context.Items.Select(i => new { i.Tag, i.Id }).ToDictionaryAsync(i => i.Tag, i => i.Id);
+            return await context.Items.Select(i => new { i.Tag, i.Id }).Where(i=>i.Tag != null).ToDictionaryAsync(i => i.Tag, i => i.Id);
         }
         /// <summary>
         /// Tags to item ids maping
