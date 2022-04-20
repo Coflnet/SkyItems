@@ -145,6 +145,26 @@ namespace Coflnet.Sky.Items.Controllers
                     .Select(i => i.Id).FirstOrDefaultAsync();
         }
 
+        /// <summary>
+        /// Gets a list of the newest items on ah
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("items/ah/new")]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<ItemPreview>> GetNewAhItems()
+        {
+            return await context.Items.Where(i=>i.Flags.HasFlag(ItemFlags.AUCTION))
+                    .OrderByDescending(o => o.Id)
+                    .Select(i => new ItemPreview()
+                    {
+                        Name = i.Name,
+                        Tag = i.Tag
+                    })
+                    .Take(60)
+                    .ToListAsync();
+        }
+
         private IOrderedQueryable<Item> GetSelectForQueryTerm(string term)
         {
             var clearedSearch = term;
