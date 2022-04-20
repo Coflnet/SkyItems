@@ -51,7 +51,7 @@ namespace Coflnet.Sky.Items.Services
                 logger.LogInformation("migrating old db");
                 await CopyOverItems(context);
             }
-            await DownloadFromApi(context);
+            _ = Task.Run(async () => { await DownloadFromApi(context); });
             try
             {
                 // bazaar is loaded every time as no bazaar events are consumed
@@ -65,13 +65,22 @@ namespace Coflnet.Sky.Items.Services
 
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
-                await Task.Delay(100);
-                var service = GetService();
-                var sum = 0;
-                sum = await service.AddItemDetailsForAuctions(batch);
+                try
+                {
+                    await Task.Delay(100);
+                    var service = GetService();
+                    var sum = 0;
+                    sum = await service.AddItemDetailsForAuctions(batch);
 
-                Console.WriteLine($"Info: updated {sum} entries");
-                consumeCount.Inc(batch.Count());
+                    Console.WriteLine($"Info: updated {sum} entries");
+                    consumeCount.Inc(batch.Count());
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "consuming new auctions ");
+                    throw;
+                }
+
             }, stoppingToken, "sky-items", 200);
 
             await Task.WhenAll(flipCons);
