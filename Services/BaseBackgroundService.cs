@@ -51,17 +51,21 @@ namespace Coflnet.Sky.Items.Services
                 logger.LogInformation("migrating old db");
                 await CopyOverItems(context);
             }
-            _ = Task.Run(async () => { await DownloadFromApi(context); });
-            try
+            _ = Task.Run(async () =>
             {
-                // bazaar is loaded every time as no bazaar events are consumed
-                await LoadBazaar(context);
-                logger.LogInformation("loaded bazaar data");
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "loading bazaar data");
-            }
+                await DownloadFromApi(context);
+                try
+                {
+                    // bazaar is loaded every time as no bazaar events are consumed
+                    await LoadBazaar(context);
+                    logger.LogInformation("loaded bazaar data");
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "loading bazaar data");
+                }
+            });
+
 
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
@@ -84,6 +88,7 @@ namespace Coflnet.Sky.Items.Services
             }, stoppingToken, "sky-items", 200);
 
             await Task.WhenAll(flipCons);
+            logger.LogInformation("consuming ended");
         }
 
         private async Task Migrate()
