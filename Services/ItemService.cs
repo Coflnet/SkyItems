@@ -57,13 +57,22 @@ namespace Coflnet.Sky.Items.Services
                     }
                     return count + await db.SaveChangesAsync();
                 }
+                catch (DbUpdateConcurrencyException ex)
+                {
+                    logger.LogError($"concurrency expcetpion of {ex.Entries.Count} count");
+                    await Task.Delay(new Random().Next(100, 10_000));
+                }
                 catch (Exception e)
                 {
+
+                    if (i == 2)
+                    {
+                        logger.LogInformation("giving up retry");
+                        return count;
+                    }
                     if (i > 0)
                         logger.LogError(e, "saving batch sample");
                     await Task.Delay(new Random().Next(100, 60_000));
-                    if (i == 2)
-                        logger.LogInformation("giving up retry");
                 }
 
             return count;
@@ -77,7 +86,7 @@ namespace Coflnet.Sky.Items.Services
             var name = ItemReferences.RemoveReforgesAndLevel(auction.ItemName);
             var nameProp = item.Modifiers.Where(m => m.Slug == "name" && m.Value == name).FirstOrDefault();
             // this has been seen on auction now
-            if(!item.Flags.HasFlag(ItemFlags.AUCTION))
+            if (!item.Flags.HasFlag(ItemFlags.AUCTION))
                 item.Flags |= ItemFlags.AUCTION;
 
             if (nameProp == null)
