@@ -55,16 +55,17 @@ namespace Coflnet.Sky.Items.Services
             _ = Task.Run(async () =>
             {
                 using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
-                await DownloadFromApi(context);
                 try
                 {
+                    logger.LogInformation("starting update from api");
+                    await DownloadFromApi(context);
                     // bazaar is loaded every time as no bazaar events are consumed
                     await LoadBazaar(context);
                     logger.LogInformation("loaded bazaar data");
                 }
                 catch (Exception e)
                 {
-                    logger.LogError(e, "loading bazaar data");
+                    logger.LogError(e, "updating from api");
                 }
             });
 
