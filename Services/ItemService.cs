@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Core;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -13,6 +14,7 @@ namespace Coflnet.Sky.Items.Services
     {
         private ItemDbContext db;
         private ILogger<ItemService> logger;
+        private static HashSet<string> irrelevantMod = new() { "uid", "uuid", "exp", "spawnedFor", "bossId" };
 
         public ItemService(ItemDbContext db, ILogger<ItemService> logger)
         {
@@ -30,14 +32,65 @@ namespace Coflnet.Sky.Items.Services
                 {
                     var itemsSample = auctions.Take(auctions.Count() / 2);
                     var sampleTags = itemsSample.Select(i => i.Tag).ToHashSet();
-                    var itemsWithDetails = await db.Items.Where(i => sampleTags.Contains(i.Tag))
+                    /*var itemsWithDetails = await db.Items.Where(i => sampleTags.Contains(i.Tag))
                         .Include(i => i.Modifiers)
                         .Include(i => i.Descriptions)
                         .AsSplitQuery().ToListAsync();
+                    logger.LogInformation($"Loaded entries from db: " + itemsWithDetails.Sum(i => i.Modifiers.Count + i.Descriptions.Count));
                     foreach (var auction in itemsSample)
                     {
                         AddItemDetailsForAuction(auction, itemsWithDetails);
+                    }*/
+
+                    ConcurrentDictionary<(string, string, string), int> occurences = new();
+                    ConcurrentDictionary<(string, string), int> descriptions = new();
+                    foreach (var auction in itemsSample)
+                    {
+                        foreach (var nbt in auction.FlatenedNBT)
+                        {
+                            var key = (auction.Tag, nbt.Key, nbt.Value);
+                            if (!irrelevantMod.Contains(nbt.Key))
+                                occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
+                        }
+                        foreach (var ench in auction.Enchantments)
+                        {
+                            var key = (auction.Tag, "!ench" + ench.Type.ToString(), ench.Level.ToString());
+                            occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
+                        }
+
+                        var descKey = (auction.Tag, auction.Context["lore"]);
+                        descriptions.AddOrUpdate(descKey, k => 1, (k, v) => v + 1);
                     }
+                    var selectTags = occurences.Keys.Select(o => o.Item1).ToHashSet();
+                    var selectSlugs = occurences.Keys.Select(o => o.Item2).ToHashSet();
+                    var selectValues = occurences.Keys.Select(o => o.Item3).ToHashSet();
+                    var toUpdate = await db.Modifiers.Where(m => selectTags.Contains(m.Item.Tag) && selectSlugs.Contains(m.Slug) && selectValues.Contains(m.Value))
+                                        .Include(m => m.Item).ToDictionaryAsync(e => (e.Item.Tag, e.Slug, e.Value));
+                    Console.WriteLine("toupdate size " + toUpdate.Count);
+                    foreach (var item in occurences)
+                    {
+                        if (toUpdate.TryGetValue(item.Key, out Modifiers mod))
+                        {
+                            mod.FoundCount += item.Value;
+                        }
+                        else
+                        {
+                            mod = new Modifiers()
+                            {
+                                FoundCount = 1,
+                                Item = await db.Items.Where(i => i.Tag == item.Key.Item1).FirstOrDefaultAsync(),
+                                Slug = item.Key.Item2,
+                                Value = item.Key.Item3,
+
+                                Type = long.TryParse(item.Key.Item3, out _) ? Modifiers.DataType.LONG : Modifiers.DataType.STRING
+                            };
+                            db.Modifiers.Add(mod);
+                            Console.WriteLine("added new val for " + item.Key);
+                        }
+
+                    }
+                    // todo update descriptions
+
                     return count + await db.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException ex)
@@ -47,7 +100,6 @@ namespace Coflnet.Sky.Items.Services
                 }
                 catch (Exception e)
                 {
-
                     if (i == 2)
                     {
                         logger.LogInformation("giving up retry");
@@ -55,7 +107,7 @@ namespace Coflnet.Sky.Items.Services
                     }
                     if (i > 0)
                         logger.LogError(e, "saving batch sample");
-                    await Task.Delay(new Random().Next(100, 60_000));
+                    await Task.Delay(new Random().Next(100, 2_000));
                 }
 
             return count;

@@ -54,14 +54,13 @@ namespace Coflnet.Sky.Items.Services
 
             _ = Task.Run(async () =>
             {
-                using var scope = scopeFactory.CreateScope();
-                using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
+                return;
                 try
                 {
                     logger.LogInformation("starting update from api");
-                    await DownloadFromApi(context);
+                    await DownloadFromApi();
                     // bazaar is loaded every time as no bazaar events are consumed
-                    await LoadBazaar(context);
+                    await LoadBazaar();
                     logger.LogInformation("loaded bazaar data");
                 }
                 catch (Exception e)
@@ -70,26 +69,31 @@ namespace Coflnet.Sky.Items.Services
                 }
             });
 
-
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config["KAFKA_HOST"], config["TOPICS:NEW_AUCTION"], async batch =>
             {
                 try
                 {
                     await Task.Delay(100);
-                    var service = GetService();
-                    var sum = 0;
-                    sum = await service.AddItemDetailsForAuctions(batch);
 
-                    Console.WriteLine($"Info: updated {sum} entries");
-                    consumeCount.Inc(batch.Count());
+                    using (var scope = scopeFactory.CreateScope())
+                    {
+
+                        var service = scope.ServiceProvider.GetRequiredService<ItemService>();
+                        var sum = 0;
+                        sum = await service.AddItemDetailsForAuctions(batch);
+
+                        Console.WriteLine($"Info: updated {sum} entries");
+                        consumeCount.Inc(batch.Count());
+                    }
                 }
                 catch (Exception e)
                 {
                     logger.LogError(e, "consuming new auctions ");
                     throw;
                 }
+                GC.Collect();
 
-            }, stoppingToken, "sky-items", 50);
+            }, stoppingToken, "sky-items", 100);
 
             await flipCons;
             logger.LogInformation("consuming ended");
@@ -103,13 +107,13 @@ namespace Coflnet.Sky.Items.Services
             await context.Database.MigrateAsync();
         }
 
-        private async Task LoadBazaar(ItemDbContext context)
+        private async Task LoadBazaar()
         {
-            var client = new RestClient("https://api.hypixel.net");
-            var request = new RestRequest("/skyblock/bazaar");
-            var responseJson = await client.ExecuteAsync(request);
-            var apiItems = JsonConvert.DeserializeObject<Models.Hypixel.BazaarResponse>(responseJson.Content);
+            Models.Hypixel.BazaarResponse apiItems = await GetBazaarData();
             var tags = apiItems.Products.Keys.ToHashSet();
+
+            using var scope = scopeFactory.CreateScope();
+            using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
             var items = await context.Items.Where(i => tags.Contains(i.Tag)).ToListAsync();
             foreach (var item in items)
             {
@@ -120,14 +124,25 @@ namespace Coflnet.Sky.Items.Services
             await context.SaveChangesAsync();
         }
 
-        private async Task DownloadFromApi(ItemDbContext context)
+        private static async Task<Models.Hypixel.BazaarResponse> GetBazaarData()
+        {
+            var client = new RestClient("https://api.hypixel.net");
+            var request = new RestRequest("/skyblock/bazaar");
+            var responseJson = await client.ExecuteAsync(request);
+            var apiItems = JsonConvert.DeserializeObject<Models.Hypixel.BazaarResponse>(responseJson.Content);
+            return apiItems;
+        }
+
+        private async Task DownloadFromApi()
         {
             var client = new RestClient("https://api.hypixel.net");
             var request = new RestRequest("/resources/skyblock/items");
             var responseJson = await client.ExecuteAsync(request);
             var items = JsonConvert.DeserializeObject<Models.Hypixel.HypixelItems>(responseJson.Content);
-            foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(items.Items, 50))
+            foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(items.Items, 30))
             {
+                using var scope = scopeFactory.CreateScope();
+                using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
                 await UpdateApiBatch(context, batch);
                 consumeCount.Inc();
             }

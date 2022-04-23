@@ -17,6 +17,9 @@ namespace Coflnet.Sky.Items.Models
         public string Value { get; set; }
         public DataType Type { get; set; }
         public int FoundCount { get; set; }
+        [IgnoreDataMember]
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Item Item { get; set; }
 
         public override bool Equals(object obj)
         {

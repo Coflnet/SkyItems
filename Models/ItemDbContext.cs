@@ -8,6 +8,7 @@ namespace Coflnet.Sky.Items.Models
     public class ItemDbContext : DbContext
     {
         public DbSet<Item> Items { get; set; }
+        public DbSet<Modifiers> Modifiers { get; set; }
 
         /// <summary>
         /// Creates a new instance of <see cref="ItemDbContext"/>
