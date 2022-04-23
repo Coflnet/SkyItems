@@ -23,24 +23,7 @@ namespace Coflnet.Sky.Items.Services
         public async Task<int> AddItemDetailsForAuctions(IEnumerable<SaveAuction> auctions)
         {
             var tags = auctions.Select(a => a.Tag).Distinct().ToHashSet();
-            var items = await db.Items.Where(i => tags.Contains(i.Tag)).Select(i => i.Tag).ToListAsync();
-            foreach (var auction in auctions.ExceptBy(items, i => i.Tag))
-            {
-                var item = new Item()
-                {
-                    Flags = ItemFlags.AUCTION,
-                    Name = auction.ItemName,
-                    Tag = auction.Tag,
-                    Tier = auction.Tier
-                };
-                if (Enum.TryParse(auction.Category.ToString(), out ItemCategory category))
-                    item.Category = category;
-                else if (auction.Tag.StartsWith("PET_"))
-                    item.Category = ItemCategory.PET;
-                db.Add(item);
-                Console.WriteLine("adding item " + item.Tag);
-            }
-            var count = await db.SaveChangesAsync();
+            int count = await AddNewAuctionsIfAny(auctions, tags);
 
             for (int i = 0; i < 3; i++)
                 try
@@ -75,6 +58,29 @@ namespace Coflnet.Sky.Items.Services
                     await Task.Delay(new Random().Next(100, 60_000));
                 }
 
+            return count;
+        }
+
+        private async Task<int> AddNewAuctionsIfAny(IEnumerable<SaveAuction> auctions, HashSet<string> tags)
+        {
+            var items = await db.Items.Where(i => tags.Contains(i.Tag)).Select(i => i.Tag).AsNoTracking().ToListAsync();
+            foreach (var auction in auctions.ExceptBy(items, i => i.Tag))
+            {
+                var item = new Item()
+                {
+                    Flags = ItemFlags.AUCTION,
+                    Name = auction.ItemName,
+                    Tag = auction.Tag,
+                    Tier = auction.Tier
+                };
+                if (Enum.TryParse(auction.Category.ToString(), out ItemCategory category))
+                    item.Category = category;
+                else if (auction.Tag.StartsWith("PET_"))
+                    item.Category = ItemCategory.PET;
+                db.Add(item);
+                Console.WriteLine("adding item " + item.Tag);
+            }
+            var count = await db.SaveChangesAsync();
             return count;
         }
 

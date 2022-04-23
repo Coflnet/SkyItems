@@ -88,7 +88,7 @@ namespace Coflnet.Sky.Items.Services
                     throw;
                 }
 
-            }, stoppingToken, "sky-items", 200);
+            }, stoppingToken, "sky-items", 50);
 
             await flipCons;
             logger.LogInformation("consuming ended");
