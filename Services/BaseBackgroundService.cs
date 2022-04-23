@@ -42,17 +42,19 @@ namespace Coflnet.Sky.Items.Services
             // make sure all migrations are applied
             await Migrate();
             using var scope = scopeFactory.CreateScope();
-            using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
-
-
-            if (!context.Items.Any())
+            using (var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>())
             {
-                await Task.Delay(1000);
-                logger.LogInformation("migrating old db");
-                await CopyOverItems(context);
+                if (!context.Items.Any())
+                {
+                    await Task.Delay(1000);
+                    logger.LogInformation("migrating old db");
+                    await CopyOverItems(context);
+                }
             }
+
             _ = Task.Run(async () =>
             {
+                using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
                 await DownloadFromApi(context);
                 try
                 {

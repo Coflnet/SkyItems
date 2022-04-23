@@ -61,7 +61,7 @@ namespace Coflnet.Sky.Items.Services
                 {
                     if (i > 0)
                         logger.LogError(e, "saving batch sample");
-                    await Task.Delay(new Random().Next(100, 8500));
+                    await Task.Delay(new Random().Next(100, 600_000));
                     if (i == 2)
                         logger.LogInformation("giving up retry");
                 }
