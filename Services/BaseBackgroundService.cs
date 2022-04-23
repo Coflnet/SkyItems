@@ -54,6 +54,7 @@ namespace Coflnet.Sky.Items.Services
 
             _ = Task.Run(async () =>
             {
+                using var scope = scopeFactory.CreateScope();
                 using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
                 try
                 {
