@@ -327,7 +327,9 @@ namespace Coflnet.Sky.Items.Services
                 var items = await db.Items.ToListAsync();
                 var newItems = await context.Items.ToListAsync();
 
-                foreach (var item in context.Items.Include(i => i.Modifiers).Include(i => i.Descriptions).Where(i => i.Tag == null && i.Id > 3213))
+                foreach (var item in await context.Items
+                            .Include(i => i.Modifiers).Include(i => i.Descriptions).AsSplitQuery()
+                            .Where(i => i.Tag == null && i.Id > 3213).ToListAsync())
                 {
                     context.Remove(item);
                     var deleteCount = await context.SaveChangesAsync();
