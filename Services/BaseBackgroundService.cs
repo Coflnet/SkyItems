@@ -326,6 +326,13 @@ namespace Coflnet.Sky.Items.Services
             {
                 var items = await db.Items.ToListAsync();
                 var newItems = await context.Items.ToListAsync();
+
+                foreach (var item in context.Items.Include(i => i.Modifiers).Include(i => i.Descriptions).Where(i => i.Tag == null && i.Id > 3213))
+                {
+                    context.Remove(item);
+                    var deleteCount = await context.SaveChangesAsync();
+                    Console.WriteLine($"Deleted {item.Tag} {deleteCount}");
+                }
                 foreach (var dbItem in items)
                 {
                     //dbItem.Names = dbItem.Names.Where(n => n.Name != null).ToList();
@@ -353,10 +360,6 @@ namespace Coflnet.Sky.Items.Services
                     }
 
 
-                }
-                foreach (var item in newItems.Where(i => i.Tag == null && i.Id > 3213))
-                {
-                    context.Remove(item);
                 }
             }
         }
