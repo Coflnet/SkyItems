@@ -1,7 +1,5 @@
 using System.Runtime.Serialization;
-using System.Text.Json.Serialization;
 using System.Collections.Generic;
-using Newtonsoft.Json.Converters;
 using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Items.Models
@@ -39,13 +37,11 @@ namespace Coflnet.Sky.Items.Models
         /// </summary>
         /// <value></value>
         [DataMember(Name = "category")]
-        [JsonConverter(typeof(StringEnumConverter))]
         public ItemCategory Category { get; set; }
         /// <summary>
         /// Tier/Rarity of this item
         /// </summary>
         /// <value></value>
-        [JsonConverter(typeof(StringEnumConverter))]
         [DataMember(Name = "tier")]
         public Tier Tier { get; set; }
         /// <summary>

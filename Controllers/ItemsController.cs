@@ -83,11 +83,22 @@ namespace Coflnet.Sky.Items.Controllers
         /// <returns></returns>
         [HttpGet]
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        [Route("/item/{itemTag}/modifiers")]
+        [Route("/item/{itemTag}/modifiers/all")]
         public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
         {
             var modifiers = await context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).Select(i => i.Modifiers).FirstOrDefaultAsync();
             return modifiers.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).ToHashSet());
+        }
+        /// <summary>
+        /// Tags to item ids maping
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [Route("/item/{itemTag}/modifiers/m/{slug}")]
+        public async Task<List<string>> Modifiers(string itemTag,string slug)
+        {
+            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i=>i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).Select(i => i.Value).ToListAsync();
         }
 
         /// <summary>
@@ -163,6 +174,19 @@ namespace Coflnet.Sky.Items.Controllers
                     })
                     .Take(60)
                     .ToListAsync();
+        }
+
+        /// <summary>
+        /// Gets the information about a given item
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("/item/{itemTag}")]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<Item> GetItemInfo(string itemTag)
+        {
+            return await context.Items.Where(i=>i.Tag == itemTag)
+                    .FirstOrDefaultAsync();
         }
 
         private IOrderedQueryable<Item> GetSelectForQueryTerm(string term)
