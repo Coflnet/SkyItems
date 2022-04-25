@@ -50,6 +50,8 @@ namespace Coflnet.Sky.Items.Services
                     logger.LogInformation("migrating old db");
                     await CopyOverItems(context);
                 }
+                logger.LogInformation("fixing");
+                await FixItems(context);
             }
 
             _ = Task.Run(async () =>
@@ -309,6 +311,52 @@ namespace Coflnet.Sky.Items.Services
 
                 }
                 await context.SaveChangesAsync();
+            }
+        }
+
+        /// <summary>
+        /// Clears differences between old and new db
+        /// some tags were set to 0 for an unkown reason
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        private static async Task FixItems(ItemDbContext context)
+        {
+            using (var db = new HypixelContext())
+            {
+                var items = await db.Items.ToListAsync();
+                var newItems = await context.Items.ToListAsync();
+                foreach (var dbItem in items)
+                {
+                    //dbItem.Names = dbItem.Names.Where(n => n.Name != null).ToList();
+                    try
+                    {
+                        var newItem = newItems.Where(n => n.Id == dbItem.Id).First();
+                        if (newItem.Tag != null)
+                            continue; // nothing to fix
+                        // remove all dupplicates
+                        foreach (var item in newItems.Where(i => i.Tag == dbItem.Tag && i.Id > 3213))
+                        {
+                            context.Remove(item);
+                        }
+                        // assign tag back
+                        newItem.Tag = dbItem.Tag;
+                        context.Update(newItem);
+
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(JsonConvert.SerializeObject(dbItem, Formatting.Indented));
+                        throw e;
+                    }
+
+                }
+                foreach (var item in newItems.Where(i => i.Tag == null && i.Id > 3213))
+                {
+                    context.Remove(item);
+                }
+                var count = await context.SaveChangesAsync();
+                Console.WriteLine("updated entries " + count);
             }
         }
 
