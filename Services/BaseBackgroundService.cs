@@ -331,9 +331,18 @@ namespace Coflnet.Sky.Items.Services
                             .Include(i => i.Modifiers).Include(i => i.Descriptions).AsSplitQuery()
                             .Where(i => i.Tag == null && i.Id > 3213).ToListAsync())
                 {
-                    context.Remove(item);
-                    var deleteCount = await context.SaveChangesAsync();
-                    Console.WriteLine($"Deleted {item.Tag} {deleteCount}");
+                    try
+                    {
+
+                        context.Remove(item);
+                        var deleteCount = await context.SaveChangesAsync();
+                        Console.WriteLine($"Deleted {item.Tag} {deleteCount}");
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Could not delete " + item.Tag);
+                        throw e;
+                    }
                 }
                 foreach (var dbItem in items)
                 {
