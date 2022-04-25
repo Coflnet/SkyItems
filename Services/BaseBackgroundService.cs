@@ -355,7 +355,10 @@ namespace Coflnet.Sky.Items.Services
                         // remove all dupplicates
                         foreach (var item in newItems.Where(i => i.Tag == dbItem.Tag && i.Id > 3213))
                         {
-                            context.Remove(item);
+                            var toRemove = await context.Items
+                            .Include(i => i.Modifiers).Include(i => i.Descriptions).AsSplitQuery()
+                            .Where(i => i.Id == item.Id).FirstAsync();
+                            context.Remove(toRemove);
                         }
                         // assign tag back
                         newItem.Tag = dbItem.Tag;
