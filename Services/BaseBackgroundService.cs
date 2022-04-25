@@ -343,20 +343,21 @@ namespace Coflnet.Sky.Items.Services
                         newItem.Tag = dbItem.Tag;
                         context.Update(newItem);
 
+                        var count = await context.SaveChangesAsync();
+                        Console.WriteLine("updated entries " + count);
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(JsonConvert.SerializeObject(dbItem, Formatting.Indented));
+                        Console.WriteLine("Could not migrate" + JsonConvert.SerializeObject(dbItem, Formatting.Indented));
                         throw e;
                     }
+
 
                 }
                 foreach (var item in newItems.Where(i => i.Tag == null && i.Id > 3213))
                 {
                     context.Remove(item);
                 }
-                var count = await context.SaveChangesAsync();
-                Console.WriteLine("updated entries " + count);
             }
         }
 
