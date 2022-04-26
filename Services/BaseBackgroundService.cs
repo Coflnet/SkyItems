@@ -327,6 +327,7 @@ namespace Coflnet.Sky.Items.Services
                 var items = await db.Items.ToListAsync();
                 var newItems = await context.Items.ToListAsync();
 
+                // remove any nulls
                 foreach (var item in await context.Items
                             .Include(i => i.Modifiers).Include(i => i.Descriptions).AsSplitQuery()
                             .Where(i => i.Tag == null && i.Id > 3213).ToListAsync())
@@ -344,6 +345,18 @@ namespace Coflnet.Sky.Items.Services
                         throw e;
                     }
                 }
+
+                var englishRegex = new System.Text.RegularExpressions.Regex("[a-zA-Z0-9 ]*");
+                foreach (var item in newItems)
+                {
+                    if(item.Tag.StartsWith("PET") && item.Name != null && !englishRegex.IsMatch(item.Name))
+                    {
+                        item.Name = null;
+                    }
+                }
+                await context.SaveChangesAsync();
+
+
                 foreach (var dbItem in items)
                 {
                     //dbItem.Names = dbItem.Names.Where(n => n.Name != null).ToList();
