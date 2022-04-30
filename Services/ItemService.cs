@@ -30,7 +30,7 @@ namespace Coflnet.Sky.Items.Services
             for (int i = 0; i < 3; i++)
                 try
                 {
-                    var itemsSample = auctions.Take(auctions.Count() / 2);
+                    var itemsSample = auctions.Take(auctions.Count());
                     var sampleTags = itemsSample.Select(i => i.Tag).ToHashSet();
                     /*var itemsWithDetails = await db.Items.Where(i => sampleTags.Contains(i.Tag))
                         .Include(i => i.Modifiers)
