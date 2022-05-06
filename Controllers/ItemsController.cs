@@ -121,7 +121,8 @@ namespace Coflnet.Sky.Items.Controllers
                         .Select(m => m.Value).FirstOrDefault()
                         : i.Name,
                         i.Tag,
-                        i.Flags
+                        i.Flags,
+                        i.Tier
                     })
                     .AsSplitQuery()
                     .ToListAsync();
@@ -131,7 +132,8 @@ namespace Coflnet.Sky.Items.Controllers
                 {
                     Tag = item.Tag,
                     Text = CleanName(item.Name),
-                    Flags = item.Flags
+                    Flags = item.Flags,
+                    Tier = item.Tier
                 };
             });
         }
