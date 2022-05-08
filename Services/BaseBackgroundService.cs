@@ -255,6 +255,8 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.THE_FISH;
                 else if (item.Id.StartsWith("PET_SKIN"))
                     match.Category = ItemCategory.PET_SKIN;
+                else if (item.Id.StartsWith("PET_ITEM"))
+                    match.Category = ItemCategory.PET_ITEM;
                 else if (item.Id.StartsWith("PET_"))
                     match.Category = ItemCategory.PET;
             }
