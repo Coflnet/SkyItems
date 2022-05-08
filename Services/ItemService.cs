@@ -16,6 +16,8 @@ namespace Coflnet.Sky.Items.Services
         private ILogger<ItemService> logger;
         private static HashSet<string> irrelevantMod = new() { "uid", "uuid", "exp", "spawnedFor", "bossId" };
 
+        public static IEnumerable<string> IgnoredSlugs => irrelevantMod;
+
         public ItemService(ItemDbContext db, ILogger<ItemService> logger)
         {
             this.db = db;

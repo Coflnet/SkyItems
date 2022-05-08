@@ -186,6 +186,7 @@ namespace Coflnet.Sky.Items.Controllers
         public async Task<Item> GetItemInfo(string itemTag)
         {
             return await context.Items.Where(i=>i.Tag == itemTag)
+                    .Include(i=>i.Modifiers.Where(m=>!ItemService.IgnoredSlugs.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
         }
 
