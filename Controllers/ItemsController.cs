@@ -187,9 +187,17 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Item> GetItemInfo(string itemTag)
         {
-            return await context.Items.Where(i=>i.Tag == itemTag)
-                    .Include(i=>i.Modifiers.Where(m=>!ItemService.IgnoredSlugs.Contains(m.Slug)))
+            var res = await context.Items.Where(i => i.Tag == itemTag)
+                    .Include(i => i.Modifiers.Where(m => !ItemService.IgnoredSlugs.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
+            MigrateUrl(res);
+            return res;
+        }
+
+        private static void MigrateUrl(Item res)
+        {
+            if (!res.Tag.StartsWith("PET") && !res.Tag.StartsWith("POTION") && !res.Tag.StartsWith("RUNE"))
+                res.IconUrl = "https://sky.coflnet.com/static/icon/" + res.Tag;
         }
 
         private IOrderedQueryable<Item> GetSelectForQueryTerm(string term)
