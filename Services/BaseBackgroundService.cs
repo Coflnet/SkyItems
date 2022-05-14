@@ -352,11 +352,18 @@ namespace Coflnet.Sky.Items.Services
                 var englishRegex = new System.Text.RegularExpressions.Regex("[a-zA-Z0-9 ]*");
                 foreach (var item in newItems)
                 {
-                    if(item.Tag.StartsWith("PET_") && item.Name != null && !englishRegex.IsMatch(item.Name))
+                    if (item.Tag.StartsWith("PET_"))
                     {
-                        item.Name = null;
-                        Console.WriteLine($"throwing away name for {item.Tag} {item.Name}" );
-                        context.Update(item);
+                        if (item.Name != null && !englishRegex.IsMatch(item.Name))
+                        {
+                            item.Name = null;
+                            Console.WriteLine($"throwing away name for {item.Tag} {item.Name}");
+                            context.Update(item);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"pet name is ok {item.Tag} {item.Name}");
+                        }
                     }
                 }
                 await context.SaveChangesAsync();
