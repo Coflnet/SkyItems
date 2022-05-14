@@ -324,6 +324,7 @@ namespace Coflnet.Sky.Items.Services
         /// <returns></returns>
         private static async Task FixItems(ItemDbContext context)
         {
+            Console.WriteLine("fixing items");
             using (var db = new HypixelContext())
             {
                 var items = await db.Items.ToListAsync();
@@ -351,9 +352,11 @@ namespace Coflnet.Sky.Items.Services
                 var englishRegex = new System.Text.RegularExpressions.Regex("[a-zA-Z0-9 ]*");
                 foreach (var item in newItems)
                 {
-                    if(item.Tag.StartsWith("PET") && item.Name != null && !englishRegex.IsMatch(item.Name))
+                    if(item.Tag.StartsWith("PET_") && item.Name != null && !englishRegex.IsMatch(item.Name))
                     {
                         item.Name = null;
+                        Console.WriteLine($"throwing away name for {item.Tag} {item.Name}" );
+                        context.Update(item);
                     }
                 }
                 await context.SaveChangesAsync();
