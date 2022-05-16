@@ -165,7 +165,15 @@ namespace Coflnet.Sky.Items.Services
                     match.Tag = item.Id;
                     context.Add(match);
                 }
-                match.Name = item.Name;
+                match.Name = item.Name.Truncate(44);
+                if(match.Name != item.Name && !match.Modifiers.Where(m => m.Slug == "abr").Any())
+                {
+                    match.Modifiers.Add(new Modifiers()
+                    {
+                        Slug = "name",
+                        Value = item.Name // save full name
+                    });
+                }
                 var parts = match.Name.Split(' ');
                 if (parts.Length > 1 && !match.Modifiers.Where(m => m.Slug == "abr").Any())
                 {
