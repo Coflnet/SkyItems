@@ -140,7 +140,10 @@ namespace Coflnet.Sky.Items.Controllers
 
         private string CleanName(string fullName)
         {
-            return Sky.Core.ItemReferences.RemoveReforgesAndLevel(fullName);
+            if(fullName == null)
+                return null;
+            var noSpecialChars = fullName.Trim('✪').Replace("⚚", "").Replace("✦", "");
+            return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim();;
         }
 
         /// <summary>
