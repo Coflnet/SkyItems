@@ -29,7 +29,7 @@ namespace Coflnet.Sky.Items.Models
         /// Default name this item is known by
         /// </summary>
         /// <value></value>
-        [System.ComponentModel.DataAnnotations.MaxLength(44)]
+        [System.ComponentModel.DataAnnotations.MaxLength(80)]
         [DataMember(Name = "Name")]
         public string Name { get; set; }
         /// <summary>
