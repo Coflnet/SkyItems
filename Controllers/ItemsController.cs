@@ -38,10 +38,10 @@ namespace Coflnet.Sky.Items.Controllers
         /// <returns></returns>
         [HttpGet]
         [Route("category/{category}/items")]
-        [ResponseCache(Duration = 3600/2, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 3600 / 2, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> GetItemsForCategory(ItemCategory category)
         {
-            return await context.Items.Where(c=>c.Category == category).Select(i=>i.Tag).ToListAsync();
+            return await context.Items.Where(c => c.Category == category).Select(i => i.Tag).ToListAsync();
         }
 
         /// <summary>
@@ -75,30 +75,37 @@ namespace Coflnet.Sky.Items.Controllers
         [Route("ids")]
         public async Task<Dictionary<string, int>> InternalIds()
         {
-            return await context.Items.Select(i => new { i.Tag, i.Id }).Where(i=>i.Tag != null).ToDictionaryAsync(i => i.Tag, i => i.Id);
+            return await context.Items.Select(i => new { i.Tag, i.Id }).Where(i => i.Tag != null).ToDictionaryAsync(i => i.Tag, i => i.Id);
         }
         /// <summary>
         /// Tags to item ids maping
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 18, Location = ResponseCacheLocation.Any, NoStore = false)]
         [Route("/item/{itemTag}/modifiers/all")]
         public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
         {
+            if (itemTag == "*")
+            {
+                var extraIgnore = new string[] { "initiator_player", "abr", "name" };
+                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
+                var allMods = await context.Modifiers.Where(m => !toIgnore.Contains(m.Slug)).GroupBy(m => new { m.Slug, m.Value }).Select(i => i.Key).ToListAsync();
+                return allMods.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).Take(200).ToHashSet());
+            }
             var modifiers = await context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).Select(i => i.Modifiers).FirstOrDefaultAsync();
             return modifiers.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).ToHashSet());
         }
         /// <summary>
-        /// Tags to item ids maping
+        /// modifiers for a specific item
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
         [Route("/item/{itemTag}/modifiers/m/{slug}")]
-        public async Task<List<string>> Modifiers(string itemTag,string slug)
+        public async Task<List<string>> Modifiers(string itemTag, string slug)
         {
-            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i=>i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).Select(i => i.Value).ToListAsync();
+            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i => i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).Select(i => i.Value).ToListAsync();
         }
 
         /// <summary>
@@ -140,10 +147,10 @@ namespace Coflnet.Sky.Items.Controllers
 
         private string CleanName(string fullName)
         {
-            if(fullName == null)
+            if (fullName == null)
                 return null;
             var noSpecialChars = fullName.Trim('✪').Replace("⚚", "").Replace("✦", "");
-            return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim();;
+            return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim(); ;
         }
 
         /// <summary>
@@ -170,7 +177,7 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<ItemPreview>> GetNewAhItems()
         {
-            return await context.Items.Where(i=>i.Flags.HasFlag(ItemFlags.AUCTION))
+            return await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.AUCTION))
                     .OrderByDescending(o => o.Id)
                     .Select(i => new ItemPreview()
                     {
