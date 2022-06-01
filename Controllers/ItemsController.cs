@@ -82,7 +82,7 @@ namespace Coflnet.Sky.Items.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ResponseCache(Duration = 18, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
         [Route("/item/{itemTag}/modifiers/all")]
         public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
         {
