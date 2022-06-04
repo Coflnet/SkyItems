@@ -91,7 +91,7 @@ namespace Coflnet.Sky.Items.Controllers
                 var extraIgnore = new string[] { "initiator_player", "abr", "name" };
                 var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
                 var allMods = await context.Modifiers.Where(m => !toIgnore.Contains(m.Slug)).GroupBy(m => new { m.Slug, m.Value }).Select(i => i.Key).ToListAsync();
-                return allMods.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).Take(200).ToHashSet());
+                return allMods.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).OrderBy(m=>m.Length).Take(200).ToHashSet());
             }
             var modifiers = await context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).Select(i => i.Modifiers).FirstOrDefaultAsync();
             return modifiers.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).ToHashSet());
