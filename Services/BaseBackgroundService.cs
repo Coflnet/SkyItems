@@ -374,6 +374,8 @@ namespace Coflnet.Sky.Items.Services
                         item.Category = ItemCategory.RUNE;
                         context.Update(item);
                     }
+                    else if (item.Tag.StartsWith("PET_SKIN_") && item.Category != ItemCategory.PET_SKIN)
+                        item.Category = ItemCategory.PET_SKIN;
                 }
                 await context.SaveChangesAsync();
 
