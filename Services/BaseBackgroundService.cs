@@ -166,7 +166,7 @@ namespace Coflnet.Sky.Items.Services
                     context.Add(match);
                 }
                 match.Name = item.Name.Truncate(44);
-                if(match.Name != item.Name && !match.Modifiers.Where(m => m.Slug == "abr").Any())
+                if (match.Name != item.Name && !match.Modifiers.Where(m => m.Slug == "abr").Any())
                 {
                     match.Modifiers.Add(new Modifiers()
                     {
@@ -368,6 +368,11 @@ namespace Coflnet.Sky.Items.Services
                             Console.WriteLine($"throwing away name for {item.Tag} {item.Name}");
                             context.Update(item);
                         }
+                    }
+                    if (item.Tag.StartsWith("RUNE_") && item.Category != ItemCategory.RUNE)
+                    {
+                        item.Category = ItemCategory.RUNE;
+                        context.Update(item);
                     }
                 }
                 await context.SaveChangesAsync();
