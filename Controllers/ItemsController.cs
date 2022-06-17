@@ -150,6 +150,8 @@ namespace Coflnet.Sky.Items.Controllers
             if (fullName == null)
                 return null;
             var noSpecialChars = fullName.Trim('✪').Replace("⚚", "").Replace("✦", "");
+            if(fullName.Contains("Rune"))
+                noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
             return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim(); ;
         }
 
