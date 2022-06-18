@@ -372,7 +372,10 @@ namespace Coflnet.Sky.Items.Services
                     if (item.Tag.StartsWith("RUNE_") && item.Category != ItemCategory.RUNE)
                     {
                         item.Category = ItemCategory.RUNE;
-                        context.Update(item);
+                    }
+                    else if (item.Tag.StartsWith("DYE_") && item.Category != ItemCategory.ARMOR_DYE)
+                    {
+                        item.Category = ItemCategory.ARMOR_DYE;
                     }
                     else if (item.Tag.StartsWith("PET_SKIN_") && item.Category != ItemCategory.PET_SKIN)
                         item.Category = ItemCategory.PET_SKIN;

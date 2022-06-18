@@ -64,6 +64,7 @@ namespace Coflnet.Sky.Items.Models
         /// </summary>
         PET,
         PET_SKIN,
-        RUNE
+        RUNE,
+        ARMOR_DYE
     }
 }
