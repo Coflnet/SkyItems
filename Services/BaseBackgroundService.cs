@@ -228,7 +228,8 @@ namespace Coflnet.Sky.Items.Services
                     }
 
                 }
-                if (item.Id.EndsWith("_PERSONALITY"))
+                var tag = item.Id;
+                if (tag.EndsWith("_PERSONALITY"))
                     match.Category = ItemCategory.MINION_SKIN;
                 else if (Enum.TryParse<ItemCategory>(item.Category, true, out ItemCategory cat))
                     match.Category = cat;
@@ -236,11 +237,11 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.FURNITURE;
                 else if (item.Generator != null)
                     match.Category = ItemCategory.GENERATOR;
-                else if (item.Id.EndsWith("_ISLAND"))
+                else if (tag.EndsWith("_ISLAND"))
                     match.Category = ItemCategory.PRIVATE_ISLAND;
-                else if (item.Id.EndsWith("_ISLAND_CRYSTAL"))
+                else if (tag.EndsWith("_ISLAND_CRYSTAL"))
                     match.Category = ItemCategory.ISLAND_CRYSTAL;
-                else if (item.Id.EndsWith("_FRAGMENT"))
+                else if (tag.EndsWith("_FRAGMENT"))
                     match.Category = ItemCategory.FRAGMENT;
                 else if (item.Requirements?.Slayer != null)
                     match.Category = ItemCategory.SLAYER;
@@ -248,26 +249,38 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.DUNGEON;
                 else if (item.Requirements?.HeartOfTheMountain != null)
                     match.Category = ItemCategory.DEEP_CAVERNS;
-                else if (item.Id.EndsWith("_SACK"))
-                    match.Category = ItemCategory.SACK;
-                else if (item.Id.EndsWith("_PORTAL"))
-                    match.Category = ItemCategory.PORTAL;
-                else if (item.Id.EndsWith("_BACKPACK"))
-                    match.Category = ItemCategory.BACKPACK;
                 else if (item.DungeonItem ?? false)
                     match.Category = ItemCategory.DUNGEON_ITEM;
-                else if (item.Id.EndsWith("TALISMAN_ENRICHMENT"))
-                    match.Category = ItemCategory.TALISMAN_ENRICHMENT;
-                else if (item.Id.EndsWith("THE_FISH"))
-                    match.Category = ItemCategory.THE_FISH;
-                else if (item.Id.StartsWith("PET_SKIN"))
-                    match.Category = ItemCategory.PET_SKIN;
-                else if (item.Id.StartsWith("PET_ITEM"))
-                    match.Category = ItemCategory.PET_ITEM;
-                else if (item.Id.StartsWith("PET_"))
-                    match.Category = ItemCategory.PET;
+                else AssignCategory(match);
             }
             await context.SaveChangesAsync();
+        }
+
+        private static void AssignCategory(Item item)
+        {
+            var tag = item.Tag;
+            if (tag.EndsWith("_SACK"))
+                item.Category = ItemCategory.SACK;
+            else if (tag.EndsWith("_PORTAL"))
+                item.Category = ItemCategory.PORTAL;
+            else if (tag.EndsWith("_BACKPACK"))
+                item.Category = ItemCategory.BACKPACK;
+            else if (tag.EndsWith("TALISMAN_ENRICHMENT"))
+                item.Category = ItemCategory.TALISMAN_ENRICHMENT;
+            else if (tag.Contains("_THE_FISH"))
+                item.Category = ItemCategory.THE_FISH;
+            else if (tag.StartsWith("PET_SKIN"))
+                item.Category = ItemCategory.PET_SKIN;
+            else if (tag.StartsWith("PET_ITEM"))
+                item.Category = ItemCategory.PET_ITEM;
+            else if (tag.StartsWith("PET_"))
+                item.Category = ItemCategory.PET;
+            else if (item.Tag.StartsWith("RUNE_") && item.Category != ItemCategory.RUNE)
+                item.Category = ItemCategory.RUNE;
+            else if (item.Tag.StartsWith("DYE_") && item.Category != ItemCategory.ArmorDye)
+                item.Category = ItemCategory.ArmorDye;
+            else if (item.Tag.StartsWith("PET_SKIN_") && item.Category != ItemCategory.PET_SKIN)
+                item.Category = ItemCategory.PET_SKIN;
         }
 
         private static string GetId(string skinString)
@@ -368,16 +381,6 @@ namespace Coflnet.Sky.Items.Services
                             context.Update(item);
                         }
                     }
-                    if (item.Tag.StartsWith("RUNE_") && item.Category != ItemCategory.RUNE)
-                    {
-                        item.Category = ItemCategory.RUNE;
-                    }
-                    else if (item.Tag.StartsWith("DYE_") && item.Category != ItemCategory.ArmorDye)
-                    {
-                        item.Category = ItemCategory.ArmorDye;
-                    }
-                    else if (item.Tag.StartsWith("PET_SKIN_") && item.Category != ItemCategory.PET_SKIN)
-                        item.Category = ItemCategory.PET_SKIN;
                 }
                 await context.SaveChangesAsync();
 
@@ -410,8 +413,6 @@ namespace Coflnet.Sky.Items.Services
                         Console.WriteLine("Could not migrate" + JsonConvert.SerializeObject(dbItem, Formatting.Indented));
                         throw e;
                     }
-
-
                 }
             }
         }
