@@ -56,7 +56,6 @@ namespace Coflnet.Sky.Items.Services
 
             _ = Task.Run(async () =>
             {
-                return;
                 try
                 {
                     logger.LogInformation("starting update from api");

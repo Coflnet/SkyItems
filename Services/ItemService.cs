@@ -135,7 +135,29 @@ namespace Coflnet.Sky.Items.Services
                 Console.WriteLine("adding item " + item.Tag);
             }
             var count = await db.SaveChangesAsync();
+            if (Random.Shared.Next() % 10 == 0)
+            {
+                await UpdateItemsOnAh(tags);
+            }
             return count;
+        }
+
+        private async Task UpdateItemsOnAh(HashSet<string> tags)
+        {
+            var onAh = await db.Items.Where(i => tags.Contains(i.Tag) && !i.Flags.HasFlag(ItemFlags.AUCTION)).ToListAsync();
+            foreach (var item in onAh)
+            {
+                try
+                {
+                    item.Flags |= ItemFlags.AUCTION;
+                    logger.LogInformation(item.Tag + " is on ah");
+                    await db.SaveChangesAsync();
+                }
+                catch (System.Exception)
+                {
+                    logger.LogError("failed to set flag on " + item.Tag);
+                }
+            }
         }
 
         private async void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
