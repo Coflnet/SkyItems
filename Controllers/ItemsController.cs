@@ -232,7 +232,7 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
-                    ).OrderBy(item => item.Name.Length / 2 - (item.Name.StartsWith(clearedSearch) ? 10000 : 0) - (item.Name == clearedSearch ? 10000000 : 0));
+                    ).OrderBy(item => item.Name.Length / 2 - (item.Name.StartsWith(clearedSearch) ? 10000 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
             return select;
         }
     }
