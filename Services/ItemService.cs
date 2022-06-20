@@ -66,31 +66,18 @@ namespace Coflnet.Sky.Items.Services
                     var selectTags = occurences.Keys.Select(o => o.Item1).ToHashSet();
                     var selectSlugs = occurences.Keys.Select(o => o.Item2).ToHashSet();
                     var selectValues = occurences.Keys.Select(o => o.Item3).ToHashSet();
-                    var toUpdate = await db.Modifiers.Where(m => selectTags.Contains(m.Item.Tag) && selectSlugs.Contains(m.Slug) && selectValues.Contains(m.Value))
-                                        .Include(m => m.Item).ToDictionaryAsync(e => (e.Item.Tag, e.Slug, e.Value));
-                    Console.WriteLine("toupdate size " + toUpdate.Count);
-                    foreach (var item in occurences)
+                    var toUpdateList = await db.Modifiers.Where(m => selectTags.Contains(m.Item.Tag) && selectSlugs.Contains(m.Slug) && selectValues.Contains(m.Value))
+                                        .Include(m => m.Item).ToListAsync();
+                    var toDelete = toUpdateList.GroupBy(m => (m.Item.Tag, m.Slug, m.Value)).Where(g => g.Count() > 1).Select(g => g.OrderByDescending(v=>v.Id).First()).ToHashSet();
+                    foreach (var item in toDelete)
                     {
-                        if (toUpdate.TryGetValue(item.Key, out Modifiers mod))
-                        {
-                            mod.FoundCount += item.Value;
-                        }
-                        else
-                        {
-                            mod = new Modifiers()
-                            {
-                                FoundCount = 1,
-                                Item = await db.Items.Where(i => i.Tag == item.Key.Item1).FirstOrDefaultAsync(),
-                                Slug = item.Key.Item2,
-                                Value = item.Key.Item3,
-
-                                Type = long.TryParse(item.Key.Item3, out _) ? Modifiers.DataType.LONG : Modifiers.DataType.STRING
-                            };
-                            db.Modifiers.Add(mod);
-                            Console.WriteLine("added new val for " + item.Key);
-                        }
-
+                        db.Modifiers.Remove(item);
+                        logger.LogInformation($"Remove dupplicate {item.Item.Tag} {item.Slug} {item.Value}");
                     }
+                    count += await db.SaveChangesAsync();
+
+                    var toUpdate = toUpdateList.ToDictionary(e => (e.Item.Tag, e.Slug, e.Value));
+                    await PerformUpdate(occurences, toUpdate);
                     // todo update descriptions
 
                     return count + await db.SaveChangesAsync();
@@ -113,6 +100,33 @@ namespace Coflnet.Sky.Items.Services
                 }
 
             return count;
+        }
+
+        private async Task PerformUpdate(ConcurrentDictionary<(string, string, string), int> occurences, Dictionary<(string Tag, string Slug, string Value), Modifiers> toUpdate)
+        {
+            Console.WriteLine("toupdate size " + toUpdate.Count);
+            foreach (var item in occurences)
+            {
+                if (toUpdate.TryGetValue(item.Key, out Modifiers mod))
+                {
+                    mod.FoundCount += item.Value;
+                }
+                else
+                {
+                    mod = new Modifiers()
+                    {
+                        FoundCount = 1,
+                        Item = await db.Items.Where(i => i.Tag == item.Key.Item1).FirstOrDefaultAsync(),
+                        Slug = item.Key.Item2,
+                        Value = item.Key.Item3,
+
+                        Type = long.TryParse(item.Key.Item3, out _) ? Modifiers.DataType.LONG : Modifiers.DataType.STRING
+                    };
+                    db.Modifiers.Add(mod);
+                    Console.WriteLine("added new val for " + item.Key);
+                }
+
+            }
         }
 
         private async Task<int> AddNewAuctionsIfAny(IEnumerable<SaveAuction> auctions, HashSet<string> tags)
