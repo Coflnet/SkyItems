@@ -381,8 +381,10 @@ namespace Coflnet.Sky.Items.Services
                             context.Update(item);
                         }
                     }
+                    AssignCategory(item);
                 }
-                await context.SaveChangesAsync();
+                var newItemsUpdated = await context.SaveChangesAsync();
+                Console.WriteLine($"Info: Updated {newItemsUpdated} items from item db");
 
 
                 foreach (var dbItem in items)
