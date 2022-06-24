@@ -143,8 +143,8 @@ namespace Coflnet.Sky.Items.Services
                 };
                 if (Enum.TryParse(auction.Category.ToString(), out ItemCategory category))
                     item.Category = category;
-                else if (auction.Tag.StartsWith("PET_"))
-                    item.Category = ItemCategory.PET;
+                else
+                    BaseBackgroundService.AssignCategory(item);
                 db.Add(item);
                 Console.WriteLine("adding item " + item.Tag);
             }

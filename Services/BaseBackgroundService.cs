@@ -256,7 +256,7 @@ namespace Coflnet.Sky.Items.Services
             await context.SaveChangesAsync();
         }
 
-        private static void AssignCategory(Item item)
+        public static void AssignCategory(Item item)
         {
             var tag = item.Tag;
             if (tag.EndsWith("_SACK"))
