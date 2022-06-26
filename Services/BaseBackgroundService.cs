@@ -281,6 +281,8 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.ArmorDye;
             else if (item.Tag.StartsWith("PET_SKIN_") && item.Category != ItemCategory.PET_SKIN)
                 item.Category = ItemCategory.PET_SKIN;
+            else if (item.Tag.EndsWith("_TRAVEL_SCROLL"))
+                item.Category = ItemCategory.TRAVEL_SCROLL;
         }
 
         private static string GetId(string skinString)
