@@ -66,6 +66,19 @@ namespace Coflnet.Sky.Items.Controllers
         {
             return await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.BAZAAR)).Select(i => i.Tag).ToListAsync();
         }
+
+        /// <summary>
+        /// All known items
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [Route("")]
+        public async Task<IEnumerable<Item>> GetAllItems()
+        {
+            return await context.Items.ToListAsync();
+        }
+
         /// <summary>
         /// Tags to item ids maping
         /// </summary>
