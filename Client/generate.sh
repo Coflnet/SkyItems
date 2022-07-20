@@ -1,4 +1,4 @@
-VERSION=0.5.0
+VERSION=0.5.1
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
@@ -19,6 +19,9 @@ sed -i 's/AUCTION = 4/AUCTION = 4/g' $FlagFile
 sed -i 's/CRAFT = 5/CRAFT = 8/g' $FlagFile
 sed -i 's/GLOWING = 6/GLOWING = 16/g' $FlagFile
 sed -i 's/MUSEUM = 7/MUSEUM = 32/g' $FlagFile
+sed -i 's/    public enum ItemFlags/    [Flags]\n    public enum ItemFlags/g' $FlagFile
+
+
 echo updated $FlagFile
 # correct enum values for categories
 CategoryFile="src/Coflnet.Sky.Items.Client/Model/ItemCategory.cs"
