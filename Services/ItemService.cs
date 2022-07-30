@@ -59,6 +59,7 @@ namespace Coflnet.Sky.Items.Services
                             var key = (auction.Tag, "!ench" + ench.Type.ToString(), ench.Level.ToString());
                             occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
                         }
+                        occurences.AddOrUpdate((auction.Tag, "reforge", auction.Reforge.ToString()), k => 1, (k, v) => v + 1);
 
                         var descKey = (auction.Tag, auction.Context["lore"]);
                         descriptions.AddOrUpdate(descKey, k => 1, (k, v) => v + 1);

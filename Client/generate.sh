@@ -12,14 +12,14 @@ sed -i 's/>OpenAPI/>Coflnet/g' src/Coflnet.Sky.Items.Client/Coflnet.Sky.Items.Cl
 
 # correct enum values
 FlagFile="src/Coflnet.Sky.Items.Client/Model/ItemFlags.cs"
-sed -i 's/NONE = 1/NONE = 0/g' $FlagFile
-sed -i 's/BAZAAR = 2/BAZAAR = 1/g' $FlagFile
-sed -i 's/TRADEABLE = 3/TRADEABLE = 2/g' $FlagFile
-sed -i 's/AUCTION = 4/AUCTION = 4/g' $FlagFile
-sed -i 's/CRAFT = 5/CRAFT = 8/g' $FlagFile
-sed -i 's/GLOWING = 6/GLOWING = 16/g' $FlagFile
-sed -i 's/MUSEUM = 7/MUSEUM = 32/g' $FlagFile
-sed -i 's/    public enum ItemFlags/    [Flags]\n    public enum ItemFlags/g' $FlagFile
+sed -i 's/= 1/= 0/g' $FlagFile
+sed -i 's/= 2/= 1/g' $FlagFile
+sed -i 's/= 3/= 2/g' $FlagFile
+sed -i 's/= 4/= 4/g' $FlagFile
+sed -i 's/= 5/= 8/g' $FlagFile
+sed -i 's/= 6/= 16/g' $FlagFile
+sed -i 's/= 7/= 32/g' $FlagFile
+sed -i 's/    public enum/    [Flags]\n    public enum/g' $FlagFile
 
 
 echo updated $FlagFile
