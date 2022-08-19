@@ -69,6 +69,13 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         public HeartOfTheMountain HeartOfTheMountain { get; set; }
     }
 
+    public class Requirement
+    {
+        [JsonProperty("type")]
+        public string Type { get; set; }
+        // there are more but ommitted
+    }
+
     public class HeartOfTheMountain
     {
         [JsonProperty("tier")]
@@ -162,13 +169,13 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         public int? GearScore { get; set; }
 
         [JsonProperty("requirements")]
-        public Requirements Requirements { get; set; }
+        public List<Requirement> Requirements { get; set; }
 
         [JsonProperty("essence")]
         public Essence Essence { get; set; }
 
         [JsonProperty("catacombs_requirements")]
-        public CatacombsRequirements CatacombsRequirements { get; set; }
+        public List<Requirement> CatacombsRequirements { get; set; }
 
         [JsonProperty("ability_damage_scaling")]
         public double? AbilityDamageScaling { get; set; }

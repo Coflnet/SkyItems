@@ -74,7 +74,7 @@ namespace Coflnet.Sky.Items.Services
             {
                 try
                 {
-                    await Task.Delay(100);
+                    //await Task.Delay(100);
 
                     using (var scope = scopeFactory.CreateScope())
                     {
@@ -243,11 +243,11 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.ISLAND_CRYSTAL;
                 else if (tag.EndsWith("_FRAGMENT"))
                     match.Category = ItemCategory.FRAGMENT;
-                else if (item.Requirements?.Slayer != null)
+                else if (item.Requirements?.Any(r => r.Type == "SLAYER") ?? false)
                     match.Category = ItemCategory.SLAYER;
-                else if (item.Requirements?.Dungeon != null)
+                else if (item.Requirements?.Any(r => r.Type == "DUNGEON_TIER") ?? false)
                     match.Category = ItemCategory.DUNGEON;
-                else if (item.Requirements?.HeartOfTheMountain != null)
+                else if (item.Requirements?.Any(r => r.Type == "HEART_OF_THE_MOUNTAIN") ?? false)
                     match.Category = ItemCategory.DEEP_CAVERNS;
                 else if (item.DungeonItem ?? false)
                     match.Category = ItemCategory.DUNGEON_ITEM;
