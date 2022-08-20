@@ -121,6 +121,23 @@ namespace Coflnet.Sky.Items.Services
                 item.Flags |= ItemFlags.BAZAAR;
                 context.Update(item);
             }
+            var existingTags = items.Select(i => i.Tag).ToHashSet();
+            foreach (var item in tags.Where(t => !existingTags.Contains(t)))
+            {
+                var newItem = new Item()
+                {
+                    Flags = ItemFlags.BAZAAR,
+                    Tag = item,
+                    Name = item
+                };
+                if(item.StartsWith("ENCHANTMENT_"))
+                {
+                    newItem.Name = item.Substring(12).ToLower().Replace('_', ' ') + " enchant";
+                    newItem.MinecraftType = "ENCHANTED_BOOK";
+                }
+                context.Add(newItem);
+                Console.WriteLine("adding " + newItem.Tag);
+            }
             consumeCount.Inc(items.Count / 10);
             await context.SaveChangesAsync();
         }
@@ -283,7 +300,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.PET_SKIN;
             else if (item.Tag.EndsWith("_TRAVEL_SCROLL"))
                 item.Category = ItemCategory.TRAVEL_SCROLL;
-            else if(item.Tag == "TRUE_WARDEN")
+            else if (item.Tag == "TRUE_WARDEN")
                 item.Category = ItemCategory.COSMETIC;
         }
 
