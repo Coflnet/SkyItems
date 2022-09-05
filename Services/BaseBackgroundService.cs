@@ -130,7 +130,7 @@ namespace Coflnet.Sky.Items.Services
                     Tag = item,
                     Name = item
                 };
-                if(item.StartsWith("ENCHANTMENT_"))
+                if (item.StartsWith("ENCHANTMENT_"))
                 {
                     newItem.Name = item.Substring(12).ToLower().Replace('_', ' ') + " enchant";
                     newItem.MinecraftType = "ENCHANTED_BOOK";
@@ -177,7 +177,7 @@ namespace Coflnet.Sky.Items.Services
                 if (match == null)
                 {
                     match = new Item();
-                    match.Modifiers = new ();
+                    match.Modifiers = new();
                     match.Tag = item.Id;
                     context.Add(match);
                 }
@@ -243,7 +243,6 @@ namespace Coflnet.Sky.Items.Services
                         Console.WriteLine(item.Id);
                         throw;
                     }
-
                 }
                 var tag = item.Id;
                 if (tag.EndsWith("_PERSONALITY"))
@@ -403,8 +402,6 @@ namespace Coflnet.Sky.Items.Services
                     }
                     AssignCategory(item);
                     context.Update(item);
-                    if(item.Tag == "PET_SKIN_MONKEY_GOLDEN")
-                        Console.WriteLine(item.Category);
                 }
                 var newItemsUpdated = await context.SaveChangesAsync();
                 Console.WriteLine($"Info: Updated {newItemsUpdated} items from item db");
