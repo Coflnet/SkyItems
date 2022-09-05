@@ -177,7 +177,7 @@ namespace Coflnet.Sky.Items.Services
                 if (match == null)
                 {
                     match = new Item();
-                    match.Modifiers = new System.Collections.Generic.HashSet<Modifiers>();
+                    match.Modifiers = new ();
                     match.Tag = item.Id;
                     context.Add(match);
                 }
@@ -268,7 +268,8 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.DEEP_CAVERNS;
                 else if (item.DungeonItem ?? false)
                     match.Category = ItemCategory.DUNGEON_ITEM;
-                else AssignCategory(match);
+                // override if matching
+                AssignCategory(match);
             }
             await context.SaveChangesAsync();
         }
@@ -296,8 +297,6 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.RUNE;
             else if (item.Tag.StartsWith("DYE_") && item.Category != ItemCategory.ArmorDye)
                 item.Category = ItemCategory.ArmorDye;
-            else if (item.Tag.StartsWith("PET_SKIN_") && item.Category != ItemCategory.PET_SKIN)
-                item.Category = ItemCategory.PET_SKIN;
             else if (item.Tag.EndsWith("_TRAVEL_SCROLL"))
                 item.Category = ItemCategory.TRAVEL_SCROLL;
             else if (item.Tag == "TRUE_WARDEN")
@@ -403,6 +402,9 @@ namespace Coflnet.Sky.Items.Services
                         }
                     }
                     AssignCategory(item);
+                    context.Update(item);
+                    if(item.Tag == "PET_SKIN_MONKEY_GOLDEN")
+                        Console.WriteLine(item.Category);
                 }
                 var newItemsUpdated = await context.SaveChangesAsync();
                 Console.WriteLine($"Info: Updated {newItemsUpdated} items from item db");
