@@ -95,20 +95,26 @@ namespace Coflnet.Sky.Items.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ResponseCache(Duration = 18, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
         [Route("/item/{itemTag}/modifiers/all")]
         public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
         {
+            IQueryable<Modifiers> select = context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).SelectMany(i => i.Modifiers);
             if (itemTag == "*")
             {
                 var extraIgnore = new string[] { "initiator_player", "abr", "name" };
                 var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
-                var allMods = await context.Modifiers.Where(m => !toIgnore.Contains(m.Slug)).GroupBy(m => new { m.Slug, m.Value }).Select(i => i.Key).ToListAsync();
-                return allMods.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value)
-                        .OrderBy(m=>int.TryParse(m, out int v) ? (v < 10 ? v - 10_000_000 : 10 - m.Length - v / 1000): m.Length).Take(200).ToHashSet());
+                select = context.Modifiers.Where(m => !toIgnore.Contains(m.Slug));
+
             }
-            var modifiers = await context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).Select(i => i.Modifiers).FirstOrDefaultAsync();
-            return modifiers.GroupBy(m => m.Slug).ToDictionary(m => m.Key, m => m.Select(m => m.Value).ToHashSet());
+            var allMods = await select.Where(v=>v.Value != null)
+                        .GroupBy(m => new { m.Slug, m.Value })
+                        .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
+                        .ToListAsync();
+            return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m => m
+                    .OrderBy(m => int.TryParse(m.Key.Value, out int v)
+                    ? (v < 10 ? v - 10_000_000 : 10 - m.Key.Value.Length - v / 1000)
+                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value).Take(200).ToHashSet());
         }
         /// <summary>
         /// modifiers for a specific item
@@ -164,7 +170,7 @@ namespace Coflnet.Sky.Items.Controllers
             if (fullName == null)
                 return null;
             var noSpecialChars = fullName.Trim('✪').Replace("⚚", "").Replace("✦", "");
-            if(fullName.Contains("Rune"))
+            if (fullName.Contains("Rune"))
                 noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
             return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim(); ;
         }
