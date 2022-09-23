@@ -33,7 +33,7 @@ namespace Coflnet.Sky.Items.Controllers
         }
 
         /// <summary>
-        /// Returns all available categories
+        /// Returns all items in a category
         /// </summary>
         /// <returns></returns>
         [HttpGet]
