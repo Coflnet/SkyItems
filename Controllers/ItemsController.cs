@@ -125,7 +125,7 @@ namespace Coflnet.Sky.Items.Controllers
         [Route("/item/{itemTag}/modifiers/m/{slug}")]
         public async Task<List<string>> Modifiers(string itemTag, string slug)
         {
-            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i => i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).Select(i => i.Value).ToListAsync();
+            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i => i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).OrderByDescending(i=>i.FoundCount).Select(i => i.Value).ToListAsync();
         }
 
         /// <summary>
@@ -222,8 +222,17 @@ namespace Coflnet.Sky.Items.Controllers
             var res = await context.Items.Where(i => i.Tag == itemTag)
                     .Include(i => i.Modifiers.Where(m => !ItemService.IgnoredSlugs.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
+            FixNameIfNull(res);
             MigrateUrl(res);
             return res;
+        }
+
+        private static void FixNameIfNull(Item res)
+        {
+            if (res.Name == null)
+                res.Name = res.Modifiers.Where(m => m.Slug == "name" && m.Value != null)
+                        .OrderByDescending(m => m.FoundCount)
+                        .Select(m => m.Value).FirstOrDefault();
         }
 
         private static void MigrateUrl(Item res)
