@@ -393,7 +393,7 @@ namespace Coflnet.Sky.Items.Services
                 {
                     if (item.Tag.StartsWith("PET_") && !item.Tag.StartsWith("PET_ITEM") && !item.Tag.StartsWith("PET_SKIN"))
                     {
-                        if (item.Name != null && !englishRegex.IsMatch(item.Name))
+                        if (item.Name != null)
                         {
                             item.Name = null;
                             Console.WriteLine($"throwing away name for {item.Tag} {item.Name}");
