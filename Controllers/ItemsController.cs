@@ -230,7 +230,7 @@ namespace Coflnet.Sky.Items.Controllers
         private static void FixNameIfNull(Item res)
         {
             if (res.Name == null)
-                res.Name = res.Modifiers.Where(m => m.Slug == "name" && m.Value != null)
+                res.Name = res.Modifiers?.Where(m => m.Slug == "name" && m.Value != null)
                         .OrderByDescending(m => m.FoundCount)
                         .Select(m => m.Value).FirstOrDefault();
         }
