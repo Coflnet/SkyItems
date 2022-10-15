@@ -107,7 +107,7 @@ namespace Coflnet.Sky.Items.Controllers
                 select = context.Modifiers.Where(m => !toIgnore.Contains(m.Slug));
 
             }
-            var allMods = await select.Where(v=>v.Value != null)
+            var allMods = await select.Where(v => v.Value != null)
                         .GroupBy(m => new { m.Slug, m.Value })
                         .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
                         .ToListAsync();
@@ -125,7 +125,7 @@ namespace Coflnet.Sky.Items.Controllers
         [Route("/item/{itemTag}/modifiers/m/{slug}")]
         public async Task<List<string>> Modifiers(string itemTag, string slug)
         {
-            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i => i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).OrderByDescending(i=>i.FoundCount).Select(i => i.Value).ToListAsync();
+            return await context.Modifiers.Where(m => m.Item == context.Items.Where(i => i.Tag == itemTag).FirstOrDefault() && m.Slug == slug).OrderByDescending(i => i.FoundCount).Select(i => i.Value).ToListAsync();
         }
 
         /// <summary>
@@ -225,6 +225,25 @@ namespace Coflnet.Sky.Items.Controllers
             FixNameIfNull(res);
             MigrateUrl(res);
             return res;
+        }
+
+        /// <summary>
+        /// Gets names of items
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("/item/names")]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async IAsyncEnumerable<ItemPreview> GetItemInfo()
+        {
+            var res = context.Items
+                    .Include(i => i.Modifiers.Where(m => m.Slug == "name")).AsAsyncEnumerable();
+            
+            await foreach (var item in res)
+            {
+                FixNameIfNull(item);
+                yield return new(item.Tag, item.Name);
+            }
         }
 
         private static void FixNameIfNull(Item res)
