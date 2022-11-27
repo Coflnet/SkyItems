@@ -110,7 +110,7 @@ namespace Coflnet.Sky.Items.Services
 
         private async Task LoadBazaar()
         {
-            Models.Hypixel.BazaarResponse apiItems = await GetBazaarData();
+            var apiItems = await GetBazaarData();
             var tags = apiItems.Products.Keys.ToHashSet();
 
             using var scope = scopeFactory.CreateScope();
@@ -121,6 +121,26 @@ namespace Coflnet.Sky.Items.Services
                 item.Flags |= ItemFlags.BAZAAR;
                 context.Update(item);
             }
+            await AddNewItemsFromBazaar(tags, context, items);
+            await RemoveFlagForNonBazaarItems(tags, context);
+        }
+
+        private async Task RemoveFlagForNonBazaarItems(HashSet<string> tags, ItemDbContext context)
+        {
+            if(tags.Count == 0)
+                return;
+            var allBazaarItems = await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.BAZAAR)).ToListAsync();
+            foreach (var item in allBazaarItems.Where(i => !tags.Contains(i.Tag)))
+            {
+                item.Flags &= ~ItemFlags.BAZAAR;
+                context.Update(item);
+                logger.LogInformation($"Removed {item.Tag} from bazaar");
+            }
+            await context.SaveChangesAsync();
+        }
+
+        private async Task AddNewItemsFromBazaar(HashSet<string> tags, ItemDbContext context, List<Item> items)
+        {
             var existingTags = items.Select(i => i.Tag).ToHashSet();
             foreach (var item in tags.Where(t => !existingTags.Contains(t)))
             {
@@ -136,7 +156,7 @@ namespace Coflnet.Sky.Items.Services
                     newItem.MinecraftType = "ENCHANTED_BOOK";
                 }
                 context.Add(newItem);
-                Console.WriteLine("adding " + newItem.Tag);
+                logger.LogInformation("adding bazaar " + newItem.Tag);
             }
             consumeCount.Inc(items.Count / 10);
             await context.SaveChangesAsync();
