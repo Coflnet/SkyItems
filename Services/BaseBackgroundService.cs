@@ -56,17 +56,10 @@ namespace Coflnet.Sky.Items.Services
 
             _ = Task.Run(async () =>
             {
-                try
+                while(!stoppingToken.IsCancellationRequested)
                 {
-                    logger.LogInformation("starting update from api");
-                    await DownloadFromApi();
-                    // bazaar is loaded every time as no bazaar events are consumed
-                    await LoadBazaar();
-                    logger.LogInformation("loaded bazaar data");
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e, "updating from api");
+                    await PullItemsFromHypixelApi();
+                    await Task.Delay(TimeSpan.FromHours(1));
                 }
             });
 
@@ -98,6 +91,22 @@ namespace Coflnet.Sky.Items.Services
 
             await flipCons;
             logger.LogInformation("consuming ended");
+        }
+
+        private async Task PullItemsFromHypixelApi()
+        {
+            try
+            {
+                logger.LogInformation("starting update from api");
+                await DownloadFromApi();
+                // bazaar is loaded every time as no bazaar events are consumed
+                await LoadBazaar();
+                logger.LogInformation("loaded bazaar data");
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "updating from api");
+            }
         }
 
         private async Task Migrate()
