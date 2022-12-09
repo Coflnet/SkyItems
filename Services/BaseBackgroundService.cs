@@ -329,6 +329,8 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.TRAVEL_SCROLL;
             else if (item.Tag == "TRUE_WARDEN")
                 item.Category = ItemCategory.COSMETIC;
+            else if (item.Name?.EndsWith(" Skin") ?? false)
+                item.Category = ItemCategory.COSMETIC;
         }
 
         private static string GetId(string skinString)
