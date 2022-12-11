@@ -217,14 +217,45 @@ namespace Coflnet.Sky.Items.Controllers
         [HttpGet]
         [Route("/item/{itemTag}")]
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<Item> GetItemInfo(string itemTag)
+        public async Task<Item> GetItemInfo(string itemTag, bool preventUrlMigration = false)
         {
             var res = await context.Items.Where(i => i.Tag == itemTag)
                     .Include(i => i.Modifiers.Where(m => !ItemService.IgnoredSlugs.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
             FixNameIfNull(res);
-            MigrateUrl(res);
+            if (!preventUrlMigration)
+                MigrateUrl(res);
             return res;
+        }
+
+        /// <summary>
+        /// Returns all items that don't have an icon
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("/items/noicon")]
+        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Item>> ItemsWithoutIcon()
+        {
+            return await context.Items.Where(i => i.IconUrl == null && (i.MinecraftType == null || i.MinecraftType == "SKULL_ITEM")).ToListAsync();
+        }
+
+        /// <summary>
+        /// Updates the icon url for an item
+        /// </summary>
+        /// <param name="tag"></param>
+        /// <param name="texture"></param>
+        /// <returns></returns>
+        [HttpPost]
+        [Route("/item/{itemTag}/texture")]
+        public async Task SetTextureForItem(string tag, string texture)
+        {
+            var item = await context.Items.Where(i => i.Tag == tag).FirstOrDefaultAsync();
+            if (item.IconUrl != null)
+                return; // don't overwrite existing urls
+            item.IconUrl = "https://mc-heads.net/head/" + texture.Replace("http://textures.minecraft.net/texture/", "");
+            context.Update(item);
+            await context.SaveChangesAsync();
         }
 
         /// <summary>
@@ -238,7 +269,7 @@ namespace Coflnet.Sky.Items.Controllers
         {
             var res = context.Items
                     .Include(i => i.Modifiers.Where(m => m.Slug == "name")).AsAsyncEnumerable();
-            
+
             await foreach (var item in res)
             {
                 FixNameIfNull(item);
