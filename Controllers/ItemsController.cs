@@ -216,7 +216,7 @@ namespace Coflnet.Sky.Items.Controllers
         /// <returns></returns>
         [HttpGet]
         [Route("/item/{itemTag}")]
-        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "preventUrlMigration" })]
         public async Task<Item> GetItemInfo(string itemTag, bool preventUrlMigration = false)
         {
             var res = await context.Items.Where(i => i.Tag == itemTag)
@@ -225,6 +225,8 @@ namespace Coflnet.Sky.Items.Controllers
             FixNameIfNull(res);
             if (!preventUrlMigration)
                 MigrateUrl(res);
+            else 
+                res.Modifiers = null;
             return res;
         }
 
