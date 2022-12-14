@@ -56,7 +56,7 @@ namespace Coflnet.Sky.Items.Services
 
             _ = Task.Run(async () =>
             {
-                while(!stoppingToken.IsCancellationRequested)
+                while (!stoppingToken.IsCancellationRequested)
                 {
                     await PullItemsFromHypixelApi();
                     await Task.Delay(TimeSpan.FromHours(1));
@@ -136,7 +136,7 @@ namespace Coflnet.Sky.Items.Services
 
         private async Task RemoveFlagForNonBazaarItems(HashSet<string> tags, ItemDbContext context)
         {
-            if(tags.Count == 0)
+            if (tags.Count == 0)
                 return;
             var allBazaarItems = await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.BAZAAR)).ToListAsync();
             foreach (var item in allBazaarItems.Where(i => !tags.Contains(i.Tag)))
@@ -196,7 +196,7 @@ namespace Coflnet.Sky.Items.Services
             logger.LogInformation("updated api items");
         }
 
-        private static async Task UpdateApiBatch(ItemDbContext context, IEnumerable<Models.Hypixel.Item> batch)
+        private async Task UpdateApiBatch(ItemDbContext context, IEnumerable<Models.Hypixel.Item> batch)
         {
             var batchLookup = batch.Select(b => b.Id).ToList();
             var batchInternal = await context.Items.Where(i => batchLookup.Contains(i.Tag)).Include(i => i.Modifiers).ToListAsync();
@@ -232,6 +232,10 @@ namespace Coflnet.Sky.Items.Services
                 match.NpcSellPrice = item.NpcSellPrice ?? -1;
                 match.MinecraftType = item.Material;
                 match.Durability = (short)item.Durability;
+                if (item.Material.StartsWith("LEATHER"))
+                {
+                    AssignIconBasedOnColor(item, match);
+                }
                 if (!string.IsNullOrEmpty(item.Tier))
                     match.Tier = Enum.Parse<Tier>(item.Tier);
                 if (item.Glowing ?? false)
@@ -300,6 +304,18 @@ namespace Coflnet.Sky.Items.Services
                 AssignCategory(match);
             }
             await context.SaveChangesAsync();
+        }
+
+        private void AssignIconBasedOnColor(Models.Hypixel.Item item, Item match)
+        {
+            if (item.Color == null)
+                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/item/" + item.Material;
+            else
+            {
+                var color = (NBT.GetColor(item.Color.Replace(",", ":")) >> 8) & 0xFFFFFF;
+                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/leather/" + item.Material.Split('_').Last().ToLower() + "/" + color.ToString("X").PadLeft(6, '0');
+                Console.WriteLine($"item {item.Id} has color {color.ToString("X").PadLeft(6, '0')} from {item.Color}");
+            }
         }
 
         public static void AssignCategory(Item item)
