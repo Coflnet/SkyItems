@@ -24,6 +24,7 @@ namespace Coflnet.Sky.Items.Services
         private IConfiguration config;
         private ILogger<BaseBackgroundService> logger;
         private Prometheus.Counter consumeCount = Prometheus.Metrics.CreateCounter("sky_items_consume", "How many messages were consumed");
+        private Prometheus.Counter apiUpdateCount = Prometheus.Metrics.CreateCounter("sky_items_api_update", "Increased when updated items from hypixel api");
 
         public BaseBackgroundService(
             IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<BaseBackgroundService> logger)
@@ -167,7 +168,7 @@ namespace Coflnet.Sky.Items.Services
                 context.Add(newItem);
                 logger.LogInformation("adding bazaar " + newItem.Tag);
             }
-            consumeCount.Inc(items.Count / 10);
+            apiUpdateCount.Inc();
             await context.SaveChangesAsync();
         }
 
@@ -191,7 +192,7 @@ namespace Coflnet.Sky.Items.Services
                 using var scope = scopeFactory.CreateScope();
                 using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
                 await UpdateApiBatch(context, batch);
-                consumeCount.Inc();
+                apiUpdateCount.Inc();
             }
             logger.LogInformation("updated api items");
         }
@@ -232,7 +233,7 @@ namespace Coflnet.Sky.Items.Services
                 match.NpcSellPrice = item.NpcSellPrice ?? -1;
                 match.MinecraftType = item.Material;
                 match.Durability = (short)item.Durability;
-                if (item.Material.StartsWith("LEATHER"))
+                if (match.IconUrl == null && item.Material.StartsWith("LEATHER"))
                 {
                     AssignIconBasedOnColor(item, match);
                 }
