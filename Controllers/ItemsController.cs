@@ -222,6 +222,8 @@ namespace Coflnet.Sky.Items.Controllers
             var res = await context.Items.Where(i => i.Tag == itemTag)
                     .Include(i => i.Modifiers.Where(m => !ItemService.IgnoredSlugs.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
+            if(res == null)
+                return null;
             FixNameIfNull(res);
             if (!preventUrlMigration)
                 MigrateUrl(res);
