@@ -59,7 +59,7 @@ namespace Coflnet.Sky.Items
                     .EnableDetailedErrors()       // <-- with debugging (remove for production).
             );
             services.AddHostedService<BaseBackgroundService>();
-            services.AddJaeger();
+            services.AddJaeger(Configuration);
             services.AddTransient<ItemService>();
             services.AddResponseCompression();
             services.AddResponseCaching();
