@@ -60,6 +60,7 @@ namespace Coflnet.Sky.Items.Services
                             occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
                         }
                         occurences.AddOrUpdate((auction.Tag, "reforge", auction.Reforge.ToString()), k => 1, (k, v) => v + 1);
+                        occurences.AddOrUpdate((auction.Tag, "name", ItemReferences.RemoveReforgesAndLevel(auction.ItemName)), k => 1, (k, v) => v + 1);
 
                         var descKey = (auction.Tag, auction.Context["lore"]);
                         descriptions.AddOrUpdate(descKey, k => 1, (k, v) => v + 1);
@@ -175,7 +176,7 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        private async void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
+        private void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
         {
             var tag = auction.Tag;
             var item = itemsWithDetails.Where(i => i.Tag == tag).FirstOrDefault();
