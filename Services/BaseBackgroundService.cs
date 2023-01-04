@@ -348,6 +348,8 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.COSMETIC;
             else if (item.Category == ItemCategory.UNKNOWN && (item.Name?.EndsWith(" Skin") ?? false))
                 item.Category = ItemCategory.COSMETIC;
+            else if(item.Tag.Contains(':'))
+                item.Category = ItemCategory.VANILLA;
         }
 
         private static string GetId(string skinString)

@@ -65,6 +65,10 @@ namespace Coflnet.Sky.Items.Models
         PET,
         PET_SKIN,
         RUNE,
-        ArmorDye
+        ArmorDye,
+        /// <summary>
+        /// Items not from skyblock, stairs, colored glass & clay etc.
+        /// </summary>
+        VANILLA
     }
 }
