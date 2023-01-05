@@ -67,8 +67,8 @@ namespace Coflnet.Sky.Items.Models
         RUNE,
         ArmorDye,
         /// <summary>
-        /// Items not from skyblock, stairs, colored glass & clay etc.
+        /// Items not from skyblock, stairs, colored glass and clay etc.
         /// </summary>
-        VANILLA
+        Vanilla
     }
 }
