@@ -186,7 +186,7 @@ namespace Coflnet.Sky.Items.Controllers
         {
             IOrderedQueryable<Item> select = GetSelectForQueryTerm(term);
             return await select
-                    .Take(1)
+                    .Take(2)
                     .Select(i => i.Id).FirstOrDefaultAsync();
         }
 
@@ -302,6 +302,8 @@ namespace Coflnet.Sky.Items.Controllers
             var tagified = term.ToUpper().Replace(' ', '_');
             if (tagified.EndsWith("_PET"))
                 tagified = "PET_" + tagified.Replace("_PET", "");
+            if(tagified == term)
+                return context.Items.Where(i => i.Tag == tagified).OrderBy(i => i.Id);
             var namingModifiers = new HashSet<string>() { "name", "alias", "abr" };
             var select = context.Items
                     .Include(item => item.Modifiers)
@@ -315,7 +317,7 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
-                    ).OrderBy(item => item.Name.Length / 2 - (item.Name.StartsWith(clearedSearch) ? 10000 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
+                    ).OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
             return select;
         }
     }
