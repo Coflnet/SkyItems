@@ -237,8 +237,8 @@ namespace Coflnet.Sky.Items.Services
                 {
                     AssignIconBasedOnColor(item, match);
                 }
-                if (!string.IsNullOrEmpty(item.Tier))
-                    match.Tier = Enum.Parse<Tier>(item.Tier);
+                if (!string.IsNullOrEmpty(item.Tier) && Enum.TryParse<Tier>(item.Tier, out var tier))
+                    match.Tier = tier;
                 if (item.Glowing ?? false)
                     match.Flags |= ItemFlags.GLOWING;
                 if (item.Museum)
@@ -348,7 +348,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.COSMETIC;
             else if (item.Category == ItemCategory.UNKNOWN && (item.Name?.EndsWith(" Skin") ?? false))
                 item.Category = ItemCategory.COSMETIC;
-            else if(item.Tag.Contains(':'))
+            else if (item.Tag.Contains(':'))
                 item.Category = ItemCategory.Vanilla;
         }
 
