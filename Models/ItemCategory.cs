@@ -69,6 +69,7 @@ namespace Coflnet.Sky.Items.Models
         /// <summary>
         /// Items not from skyblock, stairs, colored glass and clay etc.
         /// </summary>
-        Vanilla
+        Vanilla,
+        NullNamed,
     }
 }

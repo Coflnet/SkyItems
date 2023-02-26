@@ -41,6 +41,8 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 3600 / 2, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> GetItemsForCategory(ItemCategory category)
         {
+            if(category == ItemCategory.NullNamed)
+                category = ItemCategory.Vanilla;
             return await context.Items.Where(c => c.Category == category).Select(i => i.Tag).ToListAsync();
         }
 
