@@ -116,7 +116,7 @@ namespace Coflnet.Sky.Items.Controllers
             return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m => m
                     .OrderBy(m => int.TryParse(m.Key.Value, out int v)
                     ? (v < 10 ? v - 10_000_000 : 10 - m.Key.Value.Length - v / 1000)
-                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value).Take(200).ToHashSet());
+                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value).Take(150).ToHashSet());
         }
         /// <summary>
         /// modifiers for a specific item
