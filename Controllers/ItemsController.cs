@@ -160,17 +160,19 @@ namespace Coflnet.Sky.Items.Controllers
                 return new SearchResult()
                 {
                     Tag = item.Tag,
-                    Text = CleanName(item.Name),
+                    Text = CleanName(item.Name, item.Tag),
                     Flags = item.Flags,
                     Tier = item.Tier
                 };
             });
         }
 
-        private string CleanName(string fullName)
+        private string CleanName(string fullName, string tag)
         {
             if (fullName == null)
                 return null;
+            if(tag == "GOD_POTION")
+                return "God Potion (Legacy)";
             var noSpecialChars = fullName.Trim('✪').Replace("⚚", "").Replace("✦", "");
             if (fullName.Contains("Rune"))
                 noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
