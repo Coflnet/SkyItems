@@ -41,7 +41,7 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 3600 / 2, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> GetItemsForCategory(ItemCategory category)
         {
-            if(category == ItemCategory.NullNamed)
+            if (category == ItemCategory.NullNamed)
                 category = ItemCategory.Vanilla;
             return await context.Items.Where(c => c.Category == category).Select(i => i.Tag).ToListAsync();
         }
@@ -160,22 +160,24 @@ namespace Coflnet.Sky.Items.Controllers
                 return new SearchResult()
                 {
                     Tag = item.Tag,
-                    Text = CleanName(item.Name, item.Tag),
+                    Text = ImproveName(item.Name, item.Tag),
                     Flags = item.Flags,
                     Tier = item.Tier
                 };
             });
         }
 
-        private string CleanName(string fullName, string tag)
+        private string ImproveName(string fullName, string tag)
         {
             if (fullName == null)
                 return null;
-            if(tag == "GOD_POTION")
+            if (tag == "GOD_POTION")
                 return "God Potion (Legacy)";
-            var noSpecialChars = fullName.Trim('✪').Replace("⚚", "").Replace("✦", "");
+            var noSpecialChars = fullName.Trim('✪').Replace("✦", "");
             if (fullName.Contains("Rune"))
                 noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
+            if (tag.StartsWith("STARRED_"))
+                noSpecialChars = "⚚ " + noSpecialChars;
             return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim(); ;
         }
 
@@ -226,12 +228,12 @@ namespace Coflnet.Sky.Items.Controllers
             var res = await context.Items.Where(i => i.Tag == itemTag)
                     .Include(i => i.Modifiers.Where(m => !ItemService.IgnoredSlugs.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
-            if(res == null)
+            if (res == null)
                 return null;
             FixNameIfNull(res);
             if (!preventUrlMigration)
                 MigrateUrl(res);
-            else 
+            else
                 res.Modifiers = null;
             return res;
         }
@@ -306,7 +308,7 @@ namespace Coflnet.Sky.Items.Controllers
             var tagified = term.ToUpper().Replace(' ', '_');
             if (tagified.EndsWith("_PET"))
                 tagified = "PET_" + tagified.Replace("_PET", "");
-            if(tagified == term)
+            if (tagified == term)
                 return context.Items.Where(i => i.Tag == tagified).OrderBy(i => i.Id);
             var namingModifiers = new HashSet<string>() { "name", "alias", "abr" };
             var select = context.Items
