@@ -1,6 +1,7 @@
 using System.Runtime.Serialization;
 using System.Collections.Generic;
 using Coflnet.Sky.Core;
+using System;
 
 namespace Coflnet.Sky.Items.Models
 {
@@ -90,5 +91,11 @@ namespace Coflnet.Sky.Items.Models
         /// <value></value>
         [DataMember(Name = "descriptions")]
         public HashSet<Description> Descriptions { get; set; }
+        /// <summary>
+        /// When the item was first found
+        /// </summary>
+        /// <value></value>
+        [DataMember(Name = "firstSeen")]
+        public DateTime FirstSeen { get; set; } = DateTime.Now;
     }
 }
