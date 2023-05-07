@@ -20,16 +20,18 @@ namespace Coflnet.Sky.Items.Controllers
     {
         private readonly ItemService service;
         private readonly ItemDbContext context;
+        private readonly ILogger<ItemsController> logger;
 
         /// <summary>
         /// Creates a new instance of <see cref="ItemsController"/>
         /// </summary>
         /// <param name="service"></param>
         /// <param name="context"></param>
-        public ItemsController(ItemService service, ItemDbContext context)
+        public ItemsController(ItemService service, ItemDbContext context, ILogger<ItemsController> logger)
         {
             this.service = service;
             this.context = context;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -285,7 +287,10 @@ namespace Coflnet.Sky.Items.Controllers
                 return; // don't overwrite existing urls
             if (texture.Contains("http://textures.minecraft.net/texture/"))
                 item.IconUrl = "https://mc-heads.net/head/" + texture.Replace("http://textures.minecraft.net/texture/", "");
+            else
+                item.IconUrl = texture;
             context.Update(item);
+            logger.LogInformation("Updated icon for " + itemTag + " to " + item.IconUrl);
             await context.SaveChangesAsync();
         }
 
