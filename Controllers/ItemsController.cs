@@ -113,6 +113,26 @@ namespace Coflnet.Sky.Items.Controllers
                         .GroupBy(m => new { m.Slug, m.Value })
                         .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
                         .ToListAsync();
+
+            if (itemTag != "*")
+            {
+                var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 200 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
+                foreach (var group in toTrim)
+                {
+                    var max = group.Max(i => int.Parse(i.Key.Value));
+                    var min = group.Min(i => int.Parse(i.Key.Value));
+                    foreach (var item in group.OrderByDescending(i => i.occured).Skip(148))
+                    {
+                        if (int.Parse(item.Key.Value) == max || int.Parse(item.Key.Value) == min)
+                            continue;
+                        var element = select.Where(m => m.Slug == item.Key.Slug && m.Value == item.Key.Value).FirstOrDefault();
+                        context.Modifiers.Remove(element);
+                        Console.WriteLine($"Removed {item.Key.Slug} {item.Key.Value} {item.occured}");
+                    }
+                }
+                await context.SaveChangesAsync();
+            }
+
             return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m => m
                     .OrderBy(m => int.TryParse(m.Key.Value, out int v)
                     ? (v < 10 ? v - 10_000_000 : 10 - m.Key.Value.Length - v / 1000)
@@ -253,17 +273,18 @@ namespace Coflnet.Sky.Items.Controllers
         /// <summary>
         /// Updates the icon url for an item
         /// </summary>
-        /// <param name="tag"></param>
+        /// <param name="itemTag"></param>
         /// <param name="texture"></param>
         /// <returns></returns>
         [HttpPost]
         [Route("/item/{itemTag}/texture")]
-        public async Task SetTextureForItem(string tag, string texture)
+        public async Task SetTextureForItem(string itemTag, string texture)
         {
-            var item = await context.Items.Where(i => i.Tag == tag).FirstOrDefaultAsync();
+            var item = await context.Items.Where(i => i.Tag == itemTag).FirstOrDefaultAsync();
             if (item.IconUrl != null)
                 return; // don't overwrite existing urls
-            item.IconUrl = "https://mc-heads.net/head/" + texture.Replace("http://textures.minecraft.net/texture/", "");
+            if (texture.Contains("http://textures.minecraft.net/texture/"))
+                item.IconUrl = "https://mc-heads.net/head/" + texture.Replace("http://textures.minecraft.net/texture/", "");
             context.Update(item);
             await context.SaveChangesAsync();
         }
