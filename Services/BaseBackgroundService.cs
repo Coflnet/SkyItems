@@ -352,6 +352,8 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.Vanilla;
             else if (item.Tag.EndsWith("_GAUNTLET"))
                 item.Category = ItemCategory.GAUNTLET;
+            else if (item.Name == "Inferno Minion Fuel")
+                item.Category = ItemCategory.InfernoMinionFuel;
         }
 
         private static string GetId(string skinString)

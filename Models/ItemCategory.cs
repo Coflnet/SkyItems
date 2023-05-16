@@ -79,5 +79,6 @@ namespace Coflnet.Sky.Items.Models
         BELT,
         GLOVES,
         BRACELET,
+        InfernoMinionFuel,
     }
 }
