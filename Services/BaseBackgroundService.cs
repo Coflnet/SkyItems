@@ -66,20 +66,17 @@ namespace Coflnet.Sky.Items.Services
 
             var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config, config["TOPICS:NEW_AUCTION"], async batch =>
             {
+                if (batch.All(a => a.Start < DateTime.UtcNow - TimeSpan.FromHours(1)))
+                    return;
                 try
                 {
-                    //await Task.Delay(100);
+                    using var scope = scopeFactory.CreateScope();
+                    var service = scope.ServiceProvider.GetRequiredService<ItemService>();
+                    var sum = 0;
+                    sum = await service.AddItemDetailsForAuctions(batch);
 
-                    using (var scope = scopeFactory.CreateScope())
-                    {
-
-                        var service = scope.ServiceProvider.GetRequiredService<ItemService>();
-                        var sum = 0;
-                        sum = await service.AddItemDetailsForAuctions(batch);
-
-                        Console.WriteLine($"Info: updated {sum} entries");
-                        consumeCount.Inc(batch.Count());
-                    }
+                    Console.WriteLine($"Info: updated {sum} entries");
+                    consumeCount.Inc(batch.Count());
                 }
                 catch (Exception e)
                 {
