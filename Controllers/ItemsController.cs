@@ -313,6 +313,18 @@ namespace Coflnet.Sky.Items.Controllers
             }
         }
 
+        /// <summary>
+        /// Recently added items
+        /// </summary>
+        [HttpGet]
+        [Route("/items/recent")]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<string>> GetRecentlyAdded(double dayAge = 10)
+        {
+            var minTime = DateTime.UtcNow.AddDays(-dayAge);
+            return await context.Items.Where(i => i.FirstSeen > minTime).Select(i => i.Tag).ToListAsync();
+        }
+
         private static void FixNameIfNull(Item res)
         {
             if (res.Name == null)
