@@ -136,7 +136,7 @@ namespace Coflnet.Sky.Items.Services
             var items = await db.Items.Where(i => tags.Contains(i.Tag)).Select(i => i.Tag).AsNoTracking().ToListAsync();
             foreach (var auction in auctions.ExceptBy(items, i => i.Tag))
             {
-                var item = new Item()
+                var item = new Models.Item()
                 {
                     Flags = ItemFlags.AUCTION,
                     Name = auction.ItemName,
@@ -176,7 +176,7 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        private void AddItemDetailsForAuction(SaveAuction auction, List<Item> itemsWithDetails)
+        private void AddItemDetailsForAuction(SaveAuction auction, List<Models.Item> itemsWithDetails)
         {
             var tag = auction.Tag;
             var item = itemsWithDetails.Where(i => i.Tag == tag).FirstOrDefault();
@@ -229,7 +229,7 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        private void UpdateModifiers(SaveAuction auction, Item item)
+        private void UpdateModifiers(SaveAuction auction, Models.Item item)
         {
             foreach (var nbtField in auction.FlatenedNBT)
             {

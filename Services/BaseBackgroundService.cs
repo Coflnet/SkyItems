@@ -146,12 +146,12 @@ namespace Coflnet.Sky.Items.Services
             await context.SaveChangesAsync();
         }
 
-        private async Task AddNewItemsFromBazaar(HashSet<string> tags, ItemDbContext context, List<Item> items)
+        private async Task AddNewItemsFromBazaar(HashSet<string> tags, ItemDbContext context, List<Models.Item> items)
         {
             var existingTags = items.Select(i => i.Tag).ToHashSet();
             foreach (var item in tags.Where(t => !existingTags.Contains(t)))
             {
-                var newItem = new Item()
+                var newItem = new Models.Item()
                 {
                     Flags = ItemFlags.BAZAAR,
                     Tag = item,
@@ -203,7 +203,7 @@ namespace Coflnet.Sky.Items.Services
                 var match = batchInternal.Where(i => i.Tag == item.Id).FirstOrDefault();
                 if (match == null)
                 {
-                    match = new Item();
+                    match = new Models.Item();
                     match.Modifiers = new();
                     match.Tag = item.Id;
                     context.Add(match);
@@ -304,7 +304,7 @@ namespace Coflnet.Sky.Items.Services
             await context.SaveChangesAsync();
         }
 
-        private void AssignIconBasedOnColor(Models.Hypixel.Item item, Item match)
+        private void AssignIconBasedOnColor(Models.Hypixel.Item item, Models.Item match)
         {
             if (item.Color == null)
                 match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/item/" + item.Material;
@@ -316,7 +316,7 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        public static void AssignCategory(Item item)
+        public static void AssignCategory(Models.Item item)
         {
             var tag = item.Tag;
             if (tag.EndsWith("_SACK"))
@@ -380,7 +380,7 @@ namespace Coflnet.Sky.Items.Services
                         var name = dbItem.Name;
                         if (names.Count() > 0)
                             name = dbItem.Names.MaxBy(i => i.OccuredTimes).Name;
-                        var item = new Item()
+                        var item = new Models.Item()
                         {
                             Id = dbItem.Id,
                             Tag = dbItem.Tag,
