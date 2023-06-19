@@ -325,7 +325,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.PORTAL;
             else if (tag.EndsWith("_BACKPACK"))
                 item.Category = ItemCategory.BACKPACK;
-            else if (tag.EndsWith("TALISMAN_ENRICHMENT"))
+            else if (tag.StartsWith("TALISMAN_ENRICHMENT"))
                 item.Category = ItemCategory.TALISMAN_ENRICHMENT;
             else if (tag.Contains("_THE_FISH"))
                 item.Category = ItemCategory.THE_FISH;
