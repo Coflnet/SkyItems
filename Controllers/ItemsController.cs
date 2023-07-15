@@ -99,7 +99,7 @@ namespace Coflnet.Sky.Items.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         [Route("/item/{itemTag}/modifiers/all")]
         public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
         {
@@ -135,10 +135,14 @@ namespace Coflnet.Sky.Items.Controllers
                 await context.SaveChangesAsync();
             }
 
-            return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m => m
+            return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m =>
+            {
+                var ordered = m
                     .OrderBy(m => int.TryParse(m.Key.Value, out int v)
                     ? (v < 10 ? v - 10_000_000 : 10 - m.Key.Value.Length - v / 1000)
-                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value).Take(150).ToHashSet());
+                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value);
+                return ordered.Take(149).Append(ordered.Last()).ToHashSet();
+            });
         }
         /// <summary>
         /// modifiers for a specific item
