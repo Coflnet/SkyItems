@@ -118,7 +118,7 @@ namespace Coflnet.Sky.Items.Controllers
 
             if (itemTag != "*")
             {
-                var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 200 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
+                var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
                 foreach (var group in toTrim)
                 {
                     var max = group.Max(i => int.Parse(i.Key.Value));
