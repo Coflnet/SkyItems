@@ -231,7 +231,7 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<ItemPreview>> GetNewAhItems()
         {
-            return await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.AUCTION))
+            return await context.Items.Where(i => i.Flags.HasFlag(ItemFlags.AUCTION) || i.Flags.HasFlag(ItemFlags.BAZAAR))
                     .OrderByDescending(o => o.Id)
                     .Select(i => new ItemPreview()
                     {

@@ -171,7 +171,7 @@ namespace Coflnet.Sky.Items.Services
                 }
                 catch (System.Exception)
                 {
-                    logger.LogError("failed to set flag on " + item.Tag);
+                    logger.LogError("failed to set is on ah flag on " + item.Tag);
                 }
             }
         }
