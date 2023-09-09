@@ -92,6 +92,7 @@ namespace Coflnet.Sky.Items.Services
 
             await flipCons;
             logger.LogInformation("consuming ended");
+            throw new Exception("consuming ended");
         }
 
         private async Task PullItemsFromHypixelApi()
