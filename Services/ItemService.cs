@@ -120,12 +120,14 @@ namespace Coflnet.Sky.Items.Services
                         FoundCount = 1,
                         Item = await db.Items.Where(i => i.Tag == item.Key.Item1).FirstOrDefaultAsync(),
                         Slug = item.Key.Item2,
-                        Value = item.Key.Item3,
+                        Value = item.Key.Item3.Truncate(150),
 
                         Type = long.TryParse(item.Key.Item3, out _) ? Modifiers.DataType.LONG : Modifiers.DataType.STRING
                     };
                     db.Modifiers.Add(mod);
                     Console.WriteLine("added new val for " + item.Key);
+                    if(item.Key.Item3.Length > 150)
+                        logger.LogWarning($"Value {item.Key.Item3} way too long");
                 }
 
             }
