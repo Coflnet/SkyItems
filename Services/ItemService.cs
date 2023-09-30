@@ -129,7 +129,6 @@ namespace Coflnet.Sky.Items.Services
                     if(item.Key.Item3.Length > 150)
                         logger.LogWarning($"Value {item.Key.Item3} way too long");
                 }
-
             }
         }
 
