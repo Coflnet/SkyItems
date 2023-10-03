@@ -34,15 +34,6 @@ namespace Coflnet.Sky.Items.Services
                 {
                     var itemsSample = auctions.Take(auctions.Count());
                     var sampleTags = itemsSample.Select(i => i.Tag).ToHashSet();
-                    /*var itemsWithDetails = await db.Items.Where(i => sampleTags.Contains(i.Tag))
-                        .Include(i => i.Modifiers)
-                        .Include(i => i.Descriptions)
-                        .AsSplitQuery().ToListAsync();
-                    logger.LogInformation($"Loaded entries from db: " + itemsWithDetails.Sum(i => i.Modifiers.Count + i.Descriptions.Count));
-                    foreach (var auction in itemsSample)
-                    {
-                        AddItemDetailsForAuction(auction, itemsWithDetails);
-                    }*/
 
                     ConcurrentDictionary<(string, string, string), int> occurences = new();
                     ConcurrentDictionary<(string, string), int> descriptions = new();
