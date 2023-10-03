@@ -60,6 +60,8 @@ namespace Coflnet.Sky.Items.Services
                             occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
                         }
                         occurences.AddOrUpdate((auction.Tag, "reforge", auction.Reforge.ToString()), k => 1, (k, v) => v + 1);
+                        occurences.AddOrUpdate((auction.Tag, "count", auction.Count.ToString()), k => 1, (k, v) => v + 1);
+                        occurences.AddOrUpdate((auction.Tag, "tier", auction.Tier.ToString()), k => 1, (k, v) => v + 1);
                         occurences.AddOrUpdate((auction.Tag, "name", ItemReferences.RemoveReforgesAndLevel(auction.ItemName)), k => 1, (k, v) => v + 1);
 
                         var descKey = (auction.Tag, auction.Context["lore"]);
