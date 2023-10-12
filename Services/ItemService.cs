@@ -14,7 +14,7 @@ namespace Coflnet.Sky.Items.Services
     {
         private ItemDbContext db;
         private ILogger<ItemService> logger;
-        private static HashSet<string> irrelevantMod = new() { "uid", "uuid", "exp", "spawnedFor", "bossId" };
+        private static HashSet<string> irrelevantMod = new() { "uid", "uuid", "exp", "spawnedFor", "bossId", "uniqueId" };
 
         public static IEnumerable<string> IgnoredSlugs => irrelevantMod;
 
@@ -44,6 +44,12 @@ namespace Coflnet.Sky.Items.Services
                             var key = (auction.Tag, nbt.Key, nbt.Value);
                             if (!irrelevantMod.Contains(nbt.Key))
                                 occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
+                            else
+                            {
+                                // only store that the attribute exists on that item
+                                var isPresentKey = (auction.Tag, nbt.Key, "exists");
+                                occurences.AddOrUpdate(isPresentKey, k => 1, (k, v) => v + 1);
+                            }
                         }
                         foreach (var ench in auction.Enchantments)
                         {
@@ -63,7 +69,7 @@ namespace Coflnet.Sky.Items.Services
                     var selectValues = occurences.Keys.Select(o => o.Item3).ToHashSet();
                     var toUpdateList = await db.Modifiers.Where(m => selectTags.Contains(m.Item.Tag) && selectSlugs.Contains(m.Slug) && selectValues.Contains(m.Value))
                                         .Include(m => m.Item).ToListAsync();
-                    var toDelete = toUpdateList.GroupBy(m => (m.Item.Tag, m.Slug, m.Value)).Where(g => g.Count() > 1).Select(g => g.OrderByDescending(v=>v.Id).First()).ToHashSet();
+                    var toDelete = toUpdateList.GroupBy(m => (m.Item.Tag, m.Slug, m.Value)).Where(g => g.Count() > 1).Select(g => g.OrderByDescending(v => v.Id).First()).ToHashSet();
                     foreach (var item in toDelete)
                     {
                         db.Modifiers.Remove(item);
@@ -119,7 +125,7 @@ namespace Coflnet.Sky.Items.Services
                     };
                     db.Modifiers.Add(mod);
                     Console.WriteLine("added new val for " + item.Key);
-                    if(item.Key.Item3.Length > 150)
+                    if (item.Key.Item3.Length > 150)
                         logger.LogWarning($"Value {item.Key.Item3} way too long");
                 }
             }
