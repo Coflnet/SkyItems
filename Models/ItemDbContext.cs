@@ -33,7 +33,8 @@ namespace Coflnet.Sky.Items.Models
             });
             modelBuilder.Entity<Modifiers>(entity =>
             {
-                entity.HasIndex(e => new { e.Slug, e.Value });
+                // occurance lookup
+                entity.HasIndex(e => new { e.Slug, e.Value, e.FoundCount });
             });
         }
     }

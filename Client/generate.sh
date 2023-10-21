@@ -1,8 +1,8 @@
-VERSION=0.13.0
+VERSION=0.13.1
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
--g csharp-netcore \
+-g csharp \
 -o /local/out --additional-properties=packageName=Coflnet.Sky.Items.Client,packageVersion=$VERSION,licenseId=MIT
 
 cd out
@@ -19,7 +19,6 @@ sed -i 's/= 4/= 4/g' $FlagFile
 sed -i 's/= 5/= 8/g' $FlagFile
 sed -i 's/= 6/= 16/g' $FlagFile
 sed -i 's/= 7/= 32/g' $FlagFile
-sed -i 's/    public enum/    [Flags]\n    public enum/g' $FlagFile
 
 
 echo updated $FlagFile
