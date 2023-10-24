@@ -402,7 +402,7 @@ namespace Coflnet.Sky.Items.Services
                     catch (Exception e)
                     {
                         Console.WriteLine(JsonConvert.SerializeObject(dbItem, Formatting.Indented));
-                        throw e;
+                        throw new Exception("failed to copy over item", e);
                     }
 
                 }

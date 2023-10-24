@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace SkyItems.Migrations
 {
+#pragma warning disable CS1591
     public partial class create : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
