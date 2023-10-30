@@ -322,7 +322,7 @@ namespace Coflnet.Sky.Items.Controllers
         /// </summary>
         [HttpGet]
         [Route("/items/recent")]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "dayAge" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "dayAge" })]
         public async Task<IEnumerable<string>> GetRecentlyAdded(double dayAge = 10)
         {
             var minTime = DateTime.UtcNow.AddDays(-dayAge);
