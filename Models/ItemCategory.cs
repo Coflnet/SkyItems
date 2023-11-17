@@ -1,5 +1,6 @@
 namespace Coflnet.Sky.Items.Models
 {
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
     /*
     Retrieving items not fitting any category js filter
     apiResponse.items.filter(a=>!a.category && !a.furniture && !a.generator && !a.id.endsWith("ISLAND_CRYSTAL")&& !a.id.endsWith("ISLAND")&& !a.id.endsWith("PERSONALITY")
