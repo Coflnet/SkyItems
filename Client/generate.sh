@@ -1,4 +1,4 @@
-VERSION=0.13.1
+VERSION=0.13.2
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
@@ -6,9 +6,13 @@ docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${
 -o /local/out --additional-properties=packageName=Coflnet.Sky.Items.Client,packageVersion=$VERSION,licenseId=MIT
 
 cd out
-sed -i 's/GIT_USER_ID/Coflnet/g' src/Coflnet.Sky.Items.Client/Coflnet.Sky.Items.Client.csproj
-sed -i 's/GIT_REPO_ID/SkyItems/g' src/Coflnet.Sky.Items.Client/Coflnet.Sky.Items.Client.csproj
-sed -i 's/>OpenAPI/>Coflnet/g' src/Coflnet.Sky.Items.Client/Coflnet.Sky.Items.Client.csproj
+csProjPath=src/Coflnet.Sky.Items.Client/Coflnet.Sky.Items.Client.csproj
+sed -i 's/GIT_USER_ID/Coflnet/g' $csProjPath
+sed -i 's/GIT_REPO_ID/SkyItems/g' $csProjPath
+sed -i 's/>OpenAPI/>Coflnet/g' $csProjPath
+
+sed -i 's@annotations</Nullable>@annotations</Nullable>\n    <PackageReadmeFile>README.md</PackageReadmeFile>@g' $csProjPath
+sed -i 's@Remove="System.Web" />@Remove="System.Web" />\n    <None Include="../../../../README.md" Pack="true" PackagePath="\"/>@g' $csProjPath
 
 # correct enum values
 FlagFile="src/Coflnet.Sky.Items.Client/Model/ItemFlags.cs"
@@ -42,4 +46,4 @@ sed -i 's/PETSKIN/PET_SKIN/g' $CategoryFile
 echo updated $CategoryFile
 
 dotnet pack
-cp src/Coflnet.Sky.Items.Client/bin/Debug/Coflnet.Sky.Items.Client.*.nupkg ..
+cp src/Coflnet.Sky.Items.Client/bin/Release/Coflnet.Sky.Items.Client.*.nupkg ..
