@@ -124,8 +124,8 @@ namespace Coflnet.Sky.Items.Services
         {
             var apiItems = await GetBazaarData();
             var tags = apiItems.Products
-                .Where(p=>!(p.QuickStatus.SellPrice == 0 && p.QuickStatus.BuyPrice == 0 && p.QuickStatus.SellVolume == 0 && p.QuickStatus.SellMovingWeek == 0))
-                .Select(p=>p.ProductId).ToHashSet();
+                .Where(p => !(p.Value.QuickStatus.SellPrice == 0 && p.Value.QuickStatus.BuyPrice == 0 && p.Value.QuickStatus.SellVolume == 0 && p.Value.QuickStatus.SellMovingWeek == 0))
+                .Select(p => p.Value.ProductId).ToHashSet();
 
             using var scope = scopeFactory.CreateScope();
             using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
@@ -176,12 +176,12 @@ namespace Coflnet.Sky.Items.Services
             await context.SaveChangesAsync();
         }
 
-        private static async Task<BazaarPull> GetBazaarData()
+        private static async Task<Models.Hypixel.BazaarResponse> GetBazaarData()
         {
             var client = new RestClient("https://api.hypixel.net");
             var request = new RestRequest("v2/skyblock/bazaar");
             var responseJson = await client.ExecuteAsync(request);
-            var apiItems = JsonConvert.DeserializeObject<BazaarPull>(responseJson.Content);
+            var apiItems = JsonConvert.DeserializeObject<Models.Hypixel.BazaarResponse>(responseJson.Content);
             return apiItems;
         }
 
