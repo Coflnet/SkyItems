@@ -358,6 +358,8 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.GAUNTLET;
             else if (item.Name == "Inferno Minion Fuel")
                 item.Category = ItemCategory.InfernoMinionFuel;
+            else if (item.Tag.StartsWith("ABIPHONE_"))
+                item.Category = ItemCategory.ABIPHONE;
         }
 
         private static string GetId(string skinString)
