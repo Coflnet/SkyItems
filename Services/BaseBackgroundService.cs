@@ -74,6 +74,8 @@ namespace Coflnet.Sky.Items.Services
                 }
                 try
                 {
+                    // try to avoid deadlocks by waiting random amount
+                    await Task.Delay(new Random().Next(0, 1000));
                     using var scope = scopeFactory.CreateScope();
                     var service = scope.ServiceProvider.GetRequiredService<ItemService>();
                     var sum = 0;
