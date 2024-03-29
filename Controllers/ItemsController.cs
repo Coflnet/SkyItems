@@ -329,6 +329,18 @@ namespace Coflnet.Sky.Items.Controllers
             return await context.Items.Where(i => i.FirstSeen > minTime).Select(i => i.Tag).ToListAsync();
         }
 
+        [HttpGet]
+        [Route("/attribute/groups")]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<Dictionary<ItemCategory, IEnumerable<string>>> GetAttributeGroups()
+        {
+            var modLookup = new HashSet<string>(Core.Constants.AttributeKeys);
+            var data = await context.Items.Where(i => i.Modifiers.Where(m => modLookup.Contains(m.Slug)).Any())
+                .Select(i => new { i.Category, i.Tag }).ToListAsync();
+                return data.GroupBy(m => m.Category)
+                .ToDictionary(m => m.Key, m => m.Select(i => i.Tag));
+        }
+
         private static void FixNameIfNull(Item res)
         {
             if (res.Name == null)
