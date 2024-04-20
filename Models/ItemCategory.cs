@@ -82,6 +82,7 @@ namespace Coflnet.Sky.Items.Models
         BRACELET,
         InfernoMinionFuel,
         MEMENTO,
-        ABIPHONE
+        ABIPHONE,
+        Fossil,
     }
 }
