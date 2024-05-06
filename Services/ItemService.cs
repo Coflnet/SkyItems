@@ -7,6 +7,7 @@ using Coflnet.Sky.Core;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -49,6 +50,21 @@ namespace Coflnet.Sky.Items.Services
                                 // only store that the attribute exists on that item
                                 var isPresentKey = (auction.Tag, nbt.Key, "exists");
                                 occurences.AddOrUpdate(isPresentKey, k => 1, (k, v) => v + 1);
+                            }
+                        }
+                        if (auction.NbtData.Data.ContainsKey("necromancer_souls"))
+                        {
+                            try
+                            {
+                                var heldSouls = auction.NbtData.Data["necromancer_souls"] as List<dynamic>;
+                                foreach (var item in heldSouls)
+                                {
+                                    occurences.AddOrUpdate((auction.Tag, "necromancer_souls", item.mob_id.ToString()), k => 1, (k, v) => v + 1);
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                logger.LogError(e, "failed to parse necromancer souls {souls}", auction.NbtData.Data["necromancer_souls"]);
                             }
                         }
                         foreach (var ench in auction.Enchantments)
