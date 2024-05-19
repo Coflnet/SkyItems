@@ -170,11 +170,10 @@ namespace Coflnet.Sky.Items.Controllers
                     .Take(count * 3)
                     .Select(i => new
                     {
-                        Name = i.Name == null ?
-                        i.Modifiers.Where(m => m.Slug == "name" && m.Value != null)
+                        Name = i.Name,
+                        CommonName = i.Modifiers.Where(m => m.Slug == "name" && m.Value != null)
                         .OrderByDescending(m => m.FoundCount)
-                        .Select(m => m.Value).FirstOrDefault()
-                        : i.Name,
+                        .Select(m => m.Value).FirstOrDefault(),
                         i.Tag,
                         i.Flags,
                         i.Tier
@@ -186,7 +185,7 @@ namespace Coflnet.Sky.Items.Controllers
                 return new SearchResult()
                 {
                     Tag = item.Tag,
-                    Text = ImproveName(item.Name, item.Tag),
+                    Text = ImproveName(item.CommonName == null ? item.Name : item.CommonName, item.Tag),
                     Flags = item.Flags,
                     Tier = item.Tier
                 };
@@ -337,8 +336,8 @@ namespace Coflnet.Sky.Items.Controllers
             var modLookup = new HashSet<string>(Core.Constants.AttributeKeys);
             var data = await context.Items.Where(i => i.Modifiers.Where(m => modLookup.Contains(m.Slug)).Any())
                 .Select(i => new { i.Category, i.Tag }).ToListAsync();
-                return data.GroupBy(m => m.Category)
-                .ToDictionary(m => m.Key, m => m.Select(i => i.Tag));
+            return data.GroupBy(m => m.Category)
+            .ToDictionary(m => m.Key, m => m.Select(i => i.Tag));
         }
 
         private static void FixNameIfNull(Item res)
