@@ -370,8 +370,8 @@ namespace Coflnet.Sky.Items.Controllers
                         item.Modifiers
                         .Where(m => namingModifiers.Contains(m.Slug))
                         .Where(name => EF.Functions.Like(name.Value, clearedSearch + '%')
-                        //    || EF.Functions.Like(name.Value, "Enchanted " + clearedSearch + '%')
-                        || EF.Functions.Like(name.Value, '%' + term + '%')
+                            || EF.Functions.Like(name.Value, "Enchanted " + clearedSearch + '%')
+                       // || EF.Functions.Like(name.Value, '%' + term + '%')
                         ).Any()
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
