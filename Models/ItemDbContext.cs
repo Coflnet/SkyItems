@@ -35,6 +35,7 @@ namespace Coflnet.Sky.Items.Models
             {
                 // occurance lookup
                 entity.HasIndex(e => new { e.Slug, e.Value, e.FoundCount });
+                entity.HasIndex(e => new { e.ItemId, e.Slug, e.Value });
             });
         }
     }

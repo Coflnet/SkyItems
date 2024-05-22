@@ -20,6 +20,7 @@ namespace Coflnet.Sky.Items.Models
         [IgnoreDataMember]
         [System.Text.Json.Serialization.JsonIgnore]
         public Item Item { get; set; }
+        public int ItemId { get; set; }
 
         public override bool Equals(object obj)
         {

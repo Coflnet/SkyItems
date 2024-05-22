@@ -367,16 +367,18 @@ namespace Coflnet.Sky.Items.Controllers
             var select = context.Items
                     .Include(item => item.Modifiers)
                     .Where(item =>
-                        item.Modifiers
-                        .Where(m => namingModifiers.Contains(m.Slug))
-                        .Where(name => EF.Functions.Like(name.Value, clearedSearch + '%')
-                            || EF.Functions.Like(name.Value, "Enchanted " + clearedSearch + '%')
+                        context.Modifiers
+                        .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
+                            || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')) && m.Item == item
                        // || EF.Functions.Like(name.Value, '%' + term + '%')
                         ).Any()
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
-                    ).OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
+                    ).AsSplitQuery()
+                    .OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
+            var sql = select.ToQueryString();
+            Console.WriteLine(sql);
             return select;
         }
     }
