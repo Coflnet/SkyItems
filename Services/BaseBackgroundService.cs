@@ -15,6 +15,7 @@ using RestSharp;
 using System.Collections.Generic;
 using System.Linq;
 using dev;
+using System.Text.RegularExpressions;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -226,6 +227,16 @@ namespace Coflnet.Sky.Items.Services
                         Value = item.Name // save full name
                     });
                 }
+                if (!Regex.Match(match.Name, "^[a-zA-Z0-9 ]*$").Success && !match.Modifiers.Where(m => m.Slug == "alias").Any())
+                {
+                    // remove non-normal characters
+                    var newName = Regex.Replace(match.Name, "[^a-zA-Z0-9 ]", "").Replace("  ", " ").ToLower();
+                    match.Modifiers.Add(new Modifiers()
+                    {
+                        Slug = "alias",
+                        Value = newName
+                    });
+                }
                 var parts = match.Name.Split(' ');
                 if (parts.Length > 1 && !match.Modifiers.Where(m => m.Slug == "abr").Any())
                 {
@@ -362,7 +373,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.InfernoMinionFuel;
             else if (item.Tag.StartsWith("ABIPHONE_"))
                 item.Category = ItemCategory.ABIPHONE;
-            else if(item.Tag.EndsWith("_FOSSIL"))
+            else if (item.Tag.EndsWith("_FOSSIL"))
                 item.Category = ItemCategory.Fossil;
         }
 

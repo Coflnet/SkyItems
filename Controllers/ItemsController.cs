@@ -378,7 +378,6 @@ namespace Coflnet.Sky.Items.Controllers
                     ).AsSplitQuery()
                     .OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
             var sql = select.ToQueryString();
-            Console.WriteLine(sql);
             return select;
         }
     }
