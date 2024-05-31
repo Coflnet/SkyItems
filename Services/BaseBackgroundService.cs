@@ -365,7 +365,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.COSMETIC;
             else if (item.Category == ItemCategory.UNKNOWN && (item.Name?.EndsWith(" Skin") ?? false))
                 item.Category = ItemCategory.COSMETIC;
-            else if (item.Tag.Contains(':'))
+            else if (item.Tag.Contains(':') || Constants.Vanilla.Contains(item.Tag.Replace("_ITEM", "").ToLower()))
                 item.Category = ItemCategory.Vanilla;
             else if (item.Tag.EndsWith("_GAUNTLET"))
                 item.Category = ItemCategory.GAUNTLET;
