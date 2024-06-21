@@ -201,6 +201,7 @@ namespace Coflnet.Sky.Items.Controllers
             var noSpecialChars = fullName.Trim('✪').Replace("✦", "");
             if (fullName.Contains("Rune"))
                 noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
+            noSpecialChars = Core.ItemReferences.RemoveReforgesAndLevel(noSpecialChars);
             if (tag.StartsWith("STARRED_"))
                 noSpecialChars = "⚚ " + noSpecialChars;
             return System.Text.RegularExpressions.Regex.Replace(noSpecialChars, @"\[Lvl \d{1,3}\] ", "").Trim(); ;
