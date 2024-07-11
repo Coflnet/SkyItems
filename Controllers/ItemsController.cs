@@ -185,7 +185,8 @@ namespace Coflnet.Sky.Items.Controllers
                 return new SearchResult()
                 {
                     Tag = item.Tag,
-                    Text = ImproveName(item.CommonName == null ? item.Name : item.CommonName, item.Tag),
+                    // manual name takes priority over most common
+                    Text = ImproveName(item.Name != null ? item.Name : item.CommonName, item.Tag),
                     Flags = item.Flags,
                     Tier = item.Tier
                 };
