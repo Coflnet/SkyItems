@@ -1,4 +1,4 @@
-VERSION=0.16.1
+VERSION=0.17.0
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
@@ -12,7 +12,7 @@ sed -i 's/GIT_REPO_ID/SkyItems/g' $csProjPath
 sed -i 's/>OpenAPI/>Coflnet/g' $csProjPath
 
 sed -i 's@annotations</Nullable>@annotations</Nullable>\n    <PackageReadmeFile>README.md</PackageReadmeFile>@g' $csProjPath
-sed -i 's@Remove="System.Web" />@Remove="System.Web" />\n    <None Include="../../../../README.md" Pack="true" PackagePath="\"/>@g' $csProjPath
+sed -i '34i    <None Include="../../../../README.md" Pack="true" PackagePath="\"/>' $csProjPath
 
 # correct enum values
 FlagFile="src/Coflnet.Sky.Items.Client/Model/ItemFlags.cs"

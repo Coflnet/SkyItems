@@ -317,6 +317,13 @@ namespace Coflnet.Sky.Items.Controllers
                 yield return new(item.Tag, item.Name);
             }
         }
+        [HttpGet]
+        [Route("/items/npcSell")]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<Dictionary<string,float>> GetItemsWithNpcSell()
+        {
+            return await context.Items.Where(i => i.NpcSellPrice > 0).ToDictionaryAsync(i => i.Tag, i => i.NpcSellPrice);
+        }
 
         /// <summary>
         /// Recently added items
