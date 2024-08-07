@@ -478,8 +478,16 @@ namespace Coflnet.Sky.Items.Services
                     AssignCategory(item);
                     context.Update(item);
                 }
-                var newItemsUpdated = await context.SaveChangesAsync();
-                Console.WriteLine($"Info: Updated {newItemsUpdated} items from item db");
+                try
+                {
+
+                    var newItemsUpdated = await context.SaveChangesAsync();
+                    Console.WriteLine($"Info: Updated {newItemsUpdated} items from item db");
+                }
+                catch (System.Exception e)
+                {
+                    Console.WriteLine("Could not update items " + e);
+                }
 
 
                 foreach (var dbItem in items)
