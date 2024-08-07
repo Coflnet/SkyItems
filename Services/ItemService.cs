@@ -11,6 +11,10 @@ using System.Text.Json;
 
 namespace Coflnet.Sky.Items.Services
 {
+    public class ToTrimQueue
+    {
+        public ConcurrentQueue<string> Tags { get; set; } = new();
+    }
     public class ItemService
     {
         private ItemDbContext db;
@@ -18,11 +22,13 @@ namespace Coflnet.Sky.Items.Services
         private static HashSet<string> irrelevantMod = new() { "uid", "uuid", "exp", "spawnedFor", "bossId", "uniqueId" };
 
         public static IEnumerable<string> IgnoredSlugs => irrelevantMod;
+        private ToTrimQueue toTrimQueue;
 
-        public ItemService(ItemDbContext db, ILogger<ItemService> logger)
+        public ItemService(ItemDbContext db, ILogger<ItemService> logger, ToTrimQueue toTrimQueue)
         {
             this.db = db;
             this.logger = logger;
+            this.toTrimQueue = toTrimQueue;
         }
 
         public async Task<int> AddItemDetailsForAuctions(IEnumerable<SaveAuction> auctions)
@@ -115,8 +121,49 @@ namespace Coflnet.Sky.Items.Services
                         logger.LogError(e, "saving batch sample");
                     await Task.Delay(new Random().Next(100, 2_000));
                 }
+            await TrimModifiers();
 
             return count;
+        }
+
+        private async Task TrimModifiers()
+        {
+            while (toTrimQueue.Tags.TryDequeue(out string itemTag))
+            {
+                try
+                {
+                    await TrimModifiers(itemTag);
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "failed to trim modifiers for {tag}", itemTag);
+                }
+            }
+
+        }
+
+        private async Task TrimModifiers(string itemTag)
+        {
+            var select = db.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).SelectMany(i => i.Modifiers);
+            var allMods = await select.Where(v => v.Value != null)
+                        .GroupBy(m => new { m.Slug, m.Value })
+                        .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
+                        .ToListAsync();
+            var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
+            foreach (var group in toTrim)
+            {
+                var max = group.Max(i => int.Parse(i.Key.Value));
+                var min = group.Min(i => int.Parse(i.Key.Value));
+                foreach (var item in group.OrderByDescending(i => i.occured).Skip(148).Take(5))
+                {
+                    if (int.Parse(item.Key.Value) == max || int.Parse(item.Key.Value) == min)
+                        continue;
+                    var element = select.Where(m => m.Slug == item.Key.Slug && m.Value == item.Key.Value).FirstOrDefault();
+                    db.Modifiers.Remove(element);
+                    Console.WriteLine($"Removed {item.Key.Slug} {item.Key.Value} {item.occured}");
+                }
+                await db.SaveChangesAsync();
+            }
         }
 
         private async Task PerformUpdate(ConcurrentDictionary<(string, string, string), int> occurences, Dictionary<(string Tag, string Slug, string Value), Modifiers> toUpdate)

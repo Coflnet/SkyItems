@@ -21,17 +21,21 @@ namespace Coflnet.Sky.Items.Controllers
         private readonly ItemService service;
         private readonly ItemDbContext context;
         private readonly ILogger<ItemsController> logger;
+        private readonly ToTrimQueue toTrimQueue;
 
         /// <summary>
         /// Creates a new instance of <see cref="ItemsController"/>
         /// </summary>
         /// <param name="service"></param>
         /// <param name="context"></param>
-        public ItemsController(ItemService service, ItemDbContext context, ILogger<ItemsController> logger)
+        /// <param name="logger"></param>
+        /// <param name="toTrimQueue"></param>
+        public ItemsController(ItemService service, ItemDbContext context, ILogger<ItemsController> logger, ToTrimQueue toTrimQueue)
         {
             this.service = service;
             this.context = context;
             this.logger = logger;
+            this.toTrimQueue = toTrimQueue;
         }
 
         /// <summary>
@@ -118,21 +122,9 @@ namespace Coflnet.Sky.Items.Controllers
 
             if (itemTag != "*")
             {
-                var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
-                foreach (var group in toTrim)
-                {
-                    var max = group.Max(i => int.Parse(i.Key.Value));
-                    var min = group.Min(i => int.Parse(i.Key.Value));
-                    foreach (var item in group.OrderByDescending(i => i.occured).Skip(148).Take(5))
-                    {
-                        if (int.Parse(item.Key.Value) == max || int.Parse(item.Key.Value) == min)
-                            continue;
-                        var element = select.Where(m => m.Slug == item.Key.Slug && m.Value == item.Key.Value).FirstOrDefault();
-                        context.Modifiers.Remove(element);
-                        Console.WriteLine($"Removed {item.Key.Slug} {item.Key.Value} {item.occured}");
-                    }
-                }
-                await context.SaveChangesAsync();
+                var any = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
+                if (any.Count > 0)
+                    toTrimQueue.Tags.Enqueue(itemTag);
             }
 
             return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m =>
