@@ -123,7 +123,7 @@ namespace Coflnet.Sky.Items.Controllers
                 {
                     var max = group.Max(i => int.Parse(i.Key.Value));
                     var min = group.Min(i => int.Parse(i.Key.Value));
-                    foreach (var item in group.OrderByDescending(i => i.occured).Skip(148))
+                    foreach (var item in group.OrderByDescending(i => i.occured).Skip(148).Take(5))
                     {
                         if (int.Parse(item.Key.Value) == max || int.Parse(item.Key.Value) == min)
                             continue;
@@ -320,7 +320,7 @@ namespace Coflnet.Sky.Items.Controllers
         [HttpGet]
         [Route("/items/npcSell")]
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<Dictionary<string,float>> GetItemsWithNpcSell()
+        public async Task<Dictionary<string, float>> GetItemsWithNpcSell()
         {
             return await context.Items.Where(i => i.NpcSellPrice > 0).ToDictionaryAsync(i => i.Tag, i => i.NpcSellPrice);
         }
@@ -379,7 +379,7 @@ namespace Coflnet.Sky.Items.Controllers
                         context.Modifiers
                         .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
                             || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')) && m.Item == item
-                       // || EF.Functions.Like(name.Value, '%' + term + '%')
+                        // || EF.Functions.Like(name.Value, '%' + term + '%')
                         ).Any()
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
