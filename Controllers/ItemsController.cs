@@ -194,8 +194,8 @@ namespace Coflnet.Sky.Items.Controllers
             var noSpecialChars = fullName.Trim('✪').Replace("✦", "");
             if (fullName.Contains("Rune"))
                 noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
-            var firstWord = tag.Replace("STARRED_","").Split('_')[0];
-            if (!Core.ItemReferences.reforges.Contains(firstWord.ToLower()))
+            var words = tag.Replace("STARRED_", "").Split('_');
+            if (!words.Any(w => Core.ItemReferences.reforges.Contains(w.ToLower())))
                 noSpecialChars = Core.ItemReferences.RemoveReforgesAndLevel(noSpecialChars);
             if (tag.StartsWith("STARRED_"))
                 noSpecialChars = "⚚ " + noSpecialChars;
