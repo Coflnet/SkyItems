@@ -66,7 +66,7 @@ namespace Coflnet.Sky.Items.Services
                 }
             });
 
-            var flipCons = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config, config["TOPICS:NEW_AUCTION"], async batch =>
+            var flipCons = Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config, config["TOPICS:NEW_AUCTION"], async batch =>
             {
                 if (batch.All(a => a.Start < DateTime.UtcNow - TimeSpan.FromHours(1)))
                 {
