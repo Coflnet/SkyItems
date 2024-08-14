@@ -75,7 +75,7 @@ namespace Coflnet.Sky.Items.Services
                         }
                         foreach (var ench in auction.Enchantments)
                         {
-                            var key = (auction.Tag, "!ench" + ench.Type.ToString(), ench.Level.ToString());
+                            var key = (auction.Tag, "!ench" + ench.Type.ToString().ToLower(), ench.Level.ToString());
                             occurences.AddOrUpdate(key, k => 1, (k, v) => v + 1);
                         }
                         occurences.AddOrUpdate((auction.Tag, "reforge", auction.Reforge.ToString()), k => 1, (k, v) => v + 1);
