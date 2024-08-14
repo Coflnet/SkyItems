@@ -127,7 +127,7 @@ namespace Coflnet.Sky.Items.Controllers
                     toTrimQueue.Tags.Enqueue(itemTag);
             }
 
-            return allMods.GroupBy(m => m.Key.Slug).ToDictionary(m => m.Key, m =>
+            return allMods.GroupBy(m => m.Key.Slug.StartsWith("!ench") ? m.Key.Slug.ToLower() : m.Key.Slug).ToDictionary(m => m.Key, m =>
             {
                 var ordered = m
                     .OrderBy(m => int.TryParse(m.Key.Value, out int v)
