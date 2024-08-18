@@ -110,9 +110,9 @@ namespace Coflnet.Sky.Items.Controllers
             IQueryable<Modifiers> select = context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).SelectMany(i => i.Modifiers);
             if (itemTag == "*")
             {
-                var extraIgnore = new string[] { "initiator_player", "abr", "name" };
+                var extraIgnore = new string[] { "initiator_player", "abr", "name", "recipient_id", "recipient_name", "alias", "players_clicked", "player" };
                 var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
-                select = context.Modifiers.Where(m => !toIgnore.Contains(m.Slug));
+                select = context.Modifiers.Where(m => !toIgnore.Contains(m.Slug) && !EF.Functions.Like(m.Slug, "%uuid"));
 
             }
             var allMods = await select.Where(v => v.Value != null)
