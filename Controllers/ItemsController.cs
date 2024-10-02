@@ -312,6 +312,10 @@ namespace Coflnet.Sky.Items.Controllers
                 yield return new(item.Tag, item.Name);
             }
         }
+        /// <summary>
+        /// Returns all items that can be sold to npc
+        /// </summary>
+        /// <returns></returns>
         [HttpGet]
         [Route("/items/npcSell")]
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
@@ -325,7 +329,7 @@ namespace Coflnet.Sky.Items.Controllers
         /// </summary>
         [HttpGet]
         [Route("/items/recent")]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "dayAge" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["dayAge"])]
         public async Task<IEnumerable<string>> GetRecentlyAdded(double dayAge = 10)
         {
             var minTime = DateTime.UtcNow.AddDays(-dayAge);
