@@ -260,11 +260,11 @@ namespace Coflnet.Sky.Items.Services
                     match.Flags |= ItemFlags.GLOWING;
                 if (item.Museum)
                     match.Flags |= ItemFlags.MUSEUM;
-                if (item.Skin != null)
+                if (item.Skin?.Value != null)
                 {
                     try
                     {
-                        var skinString = item.Skin;
+                        var skinString = item.Skin.Value;
                         string id;
                         try
                         {

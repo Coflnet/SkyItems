@@ -106,6 +106,14 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         public Dungeon Dungeon { get; set; }
     }
 
+    public class Skin
+    {
+        [JsonProperty("value")]
+        public string Value { get; set; }
+        [JsonProperty("signature")]
+        public string Signature { get; set; }
+    }
+
     public class Item
     {
         [JsonProperty("material")]
@@ -115,7 +123,7 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         public int Durability { get; set; }
 
         [JsonProperty("skin")]
-        public string Skin { get; set; }
+        public Skin Skin { get; set; }
 
         [JsonProperty("name")]
         public string Name { get; set; }
