@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -70,7 +71,7 @@ namespace Coflnet.Sky.Items.Services
                             }
                             catch (Exception e)
                             {
-                                logger.LogError(e, "failed to parse necromancer souls {souls}", auction.NbtData.Data["necromancer_souls"]);
+                                logger.LogError(e, "failed to parse necromancer souls {souls}", JsonConvert.SerializeObject(auction.NbtData.Data["necromancer_souls"]));
                             }
                         }
                         foreach (var ench in auction.Enchantments)
