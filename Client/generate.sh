@@ -1,12 +1,13 @@
-VERSION=0.17.0
+VERSION=0.17.2
+PACKAGE_NAME=Coflnet.Sky.Items.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
 -g csharp \
--o /local/out --additional-properties=packageName=Coflnet.Sky.Items.Client,packageVersion=$VERSION,licenseId=MIT,targetFramework=net6.0
+-o /local/out --additional-properties=packageName=$PACKAGE_NAME,packageVersion=$VERSION,licenseId=MIT,targetFramework=net6.0
 
 cd out
-csProjPath=src/Coflnet.Sky.Items.Client/Coflnet.Sky.Items.Client.csproj
+csProjPath=src/$PACKAGE_NAME/$PACKAGE_NAME.csproj
 sed -i 's/GIT_USER_ID/Coflnet/g' $csProjPath
 sed -i 's/GIT_REPO_ID/SkyItems/g' $csProjPath
 sed -i 's/>OpenAPI/>Coflnet/g' $csProjPath
@@ -15,7 +16,7 @@ sed -i 's@annotations</Nullable>@annotations</Nullable>\n    <PackageReadmeFile>
 sed -i '34i    <None Include="../../../../README.md" Pack="true" PackagePath="\"/>' $csProjPath
 
 # correct enum values
-FlagFile="src/Coflnet.Sky.Items.Client/Model/ItemFlags.cs"
+FlagFile="src/$PACKAGE_NAME/Model/ItemFlags.cs"
 sed -i 's/= 1/= 0/g' $FlagFile
 sed -i 's/= 2/= 1/g' $FlagFile
 sed -i 's/= 3/= 2/g' $FlagFile
@@ -27,7 +28,7 @@ sed -i 's/= 7/= 32/g' $FlagFile
 
 echo updated $FlagFile
 # correct enum values for categories
-CategoryFile="src/Coflnet.Sky.Items.Client/Model/ItemCategory.cs"
+CategoryFile="src/$PACKAGE_NAME/Model/ItemCategory.cs"
 sed -i 's/PETITEM/PET_ITEM/g' $CategoryFile
 sed -i 's/REFORGESTONE/REFORGE_STONE/g' $CategoryFile
 sed -i 's/TRAVELSCROLL/TRAVEL_SCROLL/g' $CategoryFile
@@ -46,4 +47,5 @@ sed -i 's/PETSKIN/PET_SKIN/g' $CategoryFile
 echo updated $CategoryFile
 
 dotnet pack
-cp src/Coflnet.Sky.Items.Client/bin/Release/Coflnet.Sky.Items.Client.*.nupkg ..
+cp src/$PACKAGE_NAME/bin/Release/$PACKAGE_NAME.*.nupkg ..
+dotnet nuget push ../$PACKAGE_NAME.$VERSION.nupkg --api-key $NUGET_API_KEY --source nuget.org --skip-duplicate
