@@ -375,6 +375,13 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.ABIPHONE;
             else if (item.Tag.EndsWith("_FOSSIL"))
                 item.Category = ItemCategory.Fossil;
+
+            // special item cases that are not in the api
+            item.Category = tag switch
+            {
+                "MOLDY_MUFFIN" => ItemCategory.MEMENTO,
+                _ => item.Category
+            };
         }
 
         private static string GetId(string skinString)
