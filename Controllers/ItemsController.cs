@@ -257,6 +257,8 @@ namespace Coflnet.Sky.Items.Controllers
                 MigrateUrl(res);
             else
                 res.Modifiers = null;
+            if(res.Name == null)
+                res.Name = res.Tag;
             return res;
         }
 
