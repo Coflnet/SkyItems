@@ -191,7 +191,7 @@ namespace Coflnet.Sky.Items.Services
         private async Task DownloadFromApi()
         {
             var client = new RestClient("https://api.hypixel.net");
-            var request = new RestRequest("/resources/skyblock/items");
+            var request = new RestRequest("/v2/resources/skyblock/items");
             var responseJson = await client.ExecuteAsync(request);
             var items = JsonConvert.DeserializeObject<Models.Hypixel.HypixelItems>(responseJson.Content);
             foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(items.Items, 30))
@@ -202,6 +202,27 @@ namespace Coflnet.Sky.Items.Services
                 apiUpdateCount.Inc();
             }
             logger.LogInformation("updated api items");
+            var fireSaleRequest = new RestRequest("/v2/skyblock/firesales");
+            var fireSaleResponse = await client.ExecuteAsync(fireSaleRequest);
+            var fireSaleItems = JsonConvert.DeserializeObject<Models.Hypixel.FireSaleResponse>(fireSaleResponse.Content);
+            foreach (var sale in fireSaleItems.Sales)
+            {
+                using var scope = scopeFactory.CreateScope();
+                using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
+                var item = await context.Items.Where(i => i.Tag == sale.ItemId).FirstOrDefaultAsync();
+                if (item == null)
+                {
+                    item = new Models.Item()
+                    {
+                        Tag = sale.ItemId,
+                        Flags = ItemFlags.FIRE_SALE | ItemFlags.AUCTION,
+                        FirstSeen = DateTimeOffset.FromUnixTimeMilliseconds(sale.Start).UtcDateTime
+                    };
+                    context.Add(item);
+                    await context.SaveChangesAsync();
+                }
+            }
+
         }
 
         private async Task UpdateApiBatch(ItemDbContext context, IEnumerable<Models.Hypixel.Item> batch)

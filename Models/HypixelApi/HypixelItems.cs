@@ -200,4 +200,26 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         [JsonProperty("items")]
         public List<Item> Items { get; set; }
     }
+
+    public class FireSaleResponse
+    {
+        [JsonProperty("success")]
+        public bool Success { get; set; }
+
+        [JsonProperty("sales")]
+        public List<Sale> Sales { get; set; }
+    }
+
+    public class Sale
+    {
+        [JsonProperty("item_id")]
+        public string ItemId { get; set; }
+
+        [JsonProperty("amount")]
+        public int Amount { get; set; }
+        [JsonProperty("price")]
+        public int Price { get; set; }
+        [JsonProperty("start")]
+        public long Start { get; set; }
+    }
 }

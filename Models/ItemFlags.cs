@@ -15,6 +15,7 @@ namespace Coflnet.Sky.Items.Models
         /// Item has the minecraft effect glowing
         /// </summary>
         GLOWING = 16,
-        MUSEUM = 32
+        MUSEUM = 32,
+        FIRE_SALE = 64,
     }
 }
