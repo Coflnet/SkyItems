@@ -378,7 +378,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.PET;
             else if ((item.Tag.StartsWith("RUNE_") || item.Tag.StartsWith("UNIQUE_RUNE")) && item.Category != ItemCategory.RUNE)
                 item.Category = ItemCategory.RUNE;
-            else if ((item.Tag.StartsWith("DYE_") || item.Tag.EndsWith("_DYE") )&& item.Category != ItemCategory.ArmorDye)
+            else if ((item.Tag.StartsWith("DYE_") || item.Tag.EndsWith("_DYE") )&& item.Category == ItemCategory.UNKNOWN)
                 item.Category = ItemCategory.ArmorDye;
             else if (item.Tag.EndsWith("_TRAVEL_SCROLL"))
                 item.Category = ItemCategory.TRAVEL_SCROLL;
