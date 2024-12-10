@@ -230,7 +230,7 @@ namespace Coflnet.Sky.Items.Controllers
                     .OrderByDescending(o => o.Id)
                     .Select(i => new ItemPreview()
                     {
-                        Name = i.Name,
+                        Name = i.Name ?? i.Tag,
                         Tag = i.Tag
                     })
                     .Take(60)
