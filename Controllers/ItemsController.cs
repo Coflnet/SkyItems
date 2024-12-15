@@ -257,7 +257,7 @@ namespace Coflnet.Sky.Items.Controllers
                 MigrateUrl(res);
             else
                 res.Modifiers = null;
-            if(res.Name == null)
+            if (res.Name == null)
                 res.Name = res.Tag;
             return res;
         }
@@ -294,6 +294,14 @@ namespace Coflnet.Sky.Items.Controllers
             context.Update(item);
             logger.LogInformation("Updated icon for " + itemTag + " to " + item.IconUrl);
             await context.SaveChangesAsync();
+        }
+
+        [HttpGet]
+        [Route("/item/{itemTag}/descriptions")]
+        public async Task<IEnumerable<string>> GetDescriptions(string itemTag)
+        {
+            return await context.Items.Where(i => i.Tag == itemTag).SelectMany(i => i.Descriptions)
+                .OrderByDescending(m => m.Occurences).Select(m => m.Text).Take(10).ToListAsync();
         }
 
         /// <summary>
