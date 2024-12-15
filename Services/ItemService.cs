@@ -195,6 +195,10 @@ namespace Coflnet.Sky.Items.Services
                 {
                     mod.FoundCount += item.Value;
                 }
+                else if(item.Key.Item2.EndsWith("uuid") )
+                {
+                    // ignore uuids
+                }
                 else
                 {
                     mod = new Modifiers()
