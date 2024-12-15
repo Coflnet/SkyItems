@@ -102,8 +102,8 @@ namespace Coflnet.Sky.Items.Services
 
                     var toUpdate = toUpdateList.ToDictionary(e => (e.Item.Tag, e.Slug, e.Value));
                     await PerformUpdate(occurences, toUpdate);
-                    // todo update descriptions
-
+                    count += await db.SaveChangesAsync();
+                    await AddDescriptionsIfNotExisting(descriptions);
                     return count + await db.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException ex)
@@ -125,6 +125,25 @@ namespace Coflnet.Sky.Items.Services
             await TrimModifiers();
 
             return count;
+        }
+
+        private async Task AddDescriptionsIfNotExisting(ConcurrentDictionary<(string, string), int> descriptions)
+        {
+            var itemTags = descriptions.Keys.Select(d => d.Item1).ToHashSet();
+            var descDict = descriptions.GroupBy(d => d.Key.Item1).ToDictionary(g => g.Key);
+            var toAdd = await db.Items.Where(i => itemTags.Contains(i.Tag) && i.Descriptions.Count == 0).Include(i => i.Descriptions).ToListAsync();
+            foreach (var item in toAdd)
+            {
+                var match = descDict[item.Tag].OrderByDescending(d => d.Value).FirstOrDefault();
+                if (match.Key.Item1 == null)
+                    continue;
+                item.Descriptions.Add(new Description()
+                {
+                    Item = item,
+                    Text = match.Key.Item2,
+                    Occurences = match.Value
+                });
+            }
         }
 
         private async Task TrimModifiers()
