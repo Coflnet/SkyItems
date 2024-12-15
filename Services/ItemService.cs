@@ -217,9 +217,33 @@ namespace Coflnet.Sky.Items.Services
             var count = await db.SaveChangesAsync();
             if (Random.Shared.Next() % 10 == 0)
             {
+                await UpdateCategoryBasedOnDescription(auctions);
                 await UpdateItemsOnAh(tags);
             }
             return count;
+        }
+
+        private async Task UpdateCategoryBasedOnDescription(IEnumerable<SaveAuction> auctions)
+        {
+            var categoryFor = new Dictionary<string, ItemCategory>();
+            foreach (var auction in auctions.GroupBy(a => a.Tag).Select(g => g.First()))
+            {
+                if (!auction.Context.TryGetValue("lore", out string lore))
+                {
+                    continue;
+                }
+                if (lore.Contains("MEMENTO"))
+                {
+                    categoryFor[auction.Tag] = ItemCategory.MEMENTO;
+                }
+            }
+            foreach (var item in await db.Items.Where(i => i.Category == ItemCategory.UNKNOWN && categoryFor.Keys.Contains(i.Tag)).ToListAsync())
+            {
+                item.Category = categoryFor[item.Tag];
+                db.Update(item);
+                logger.LogInformation("Updated category for {item} to {category}", item.Tag, item.Category);
+            }
+            await db.SaveChangesAsync();
         }
 
         private async Task UpdateItemsOnAh(HashSet<string> tags)
