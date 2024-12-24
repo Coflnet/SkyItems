@@ -92,7 +92,7 @@ namespace Coflnet.Sky.Items.Services
                 }
                 GC.Collect();
 
-            }, stoppingToken, "sky-items", 100);
+            }, stoppingToken, "sky-items", 32);
 
             await flipCons;
             logger.LogInformation("consuming ended");
