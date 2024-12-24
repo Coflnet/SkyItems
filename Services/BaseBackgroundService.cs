@@ -88,7 +88,7 @@ namespace Coflnet.Sky.Items.Services
                 catch (Exception e)
                 {
                     logger.LogError(e, "consuming new auctions ");
-                    throw;
+                    await Task.Delay(10_000);
                 }
                 GC.Collect();
 
