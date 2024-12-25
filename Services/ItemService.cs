@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Newtonsoft.Json;
+using MoreLinq;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -184,6 +185,17 @@ namespace Coflnet.Sky.Items.Services
                 }
                 await db.SaveChangesAsync();
             }
+            var uuids = allMods.Where(m => m.Key.Slug.EndsWith("uuid")).ToList();
+            foreach (var toRemove in uuids.Batch(20))
+            {
+                foreach (var element in toRemove)
+                {
+                    var concrete = await select.Where(m => m.Slug == element.Key.Slug && m.Value == element.Key.Value).FirstOrDefaultAsync();
+                    db.Modifiers.Remove(concrete);
+                }
+                logger.LogInformation("Removed {count} uuids, {key}", toRemove.Count(), toRemove.First().Key.Slug);
+                await db.SaveChangesAsync();
+            }
         }
 
         private async Task PerformUpdate(ConcurrentDictionary<(string, string, string), int> occurences, Dictionary<(string Tag, string Slug, string Value), Modifiers> toUpdate)
@@ -195,7 +207,7 @@ namespace Coflnet.Sky.Items.Services
                 {
                     mod.FoundCount += item.Value;
                 }
-                else if(item.Key.Item2.EndsWith("uuid") )
+                else if (item.Key.Item2.EndsWith("uuid"))
                 {
                     // ignore uuids
                 }
