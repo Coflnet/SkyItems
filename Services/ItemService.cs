@@ -123,7 +123,6 @@ namespace Coflnet.Sky.Items.Services
                         logger.LogError(e, "saving batch sample");
                     await Task.Delay(new Random().Next(100, 2_000));
                 }
-            await TrimModifiers();
 
             return count;
         }
@@ -147,9 +146,9 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        private async Task TrimModifiers()
+        public async Task TrimModifiers()
         {
-            while (toTrimQueue.Tags.TryDequeue(out string itemTag))
+            if (toTrimQueue.Tags.TryDequeue(out string itemTag))
             {
                 try
                 {
@@ -160,7 +159,6 @@ namespace Coflnet.Sky.Items.Services
                     logger.LogError(e, "failed to trim modifiers for {tag}", itemTag);
                 }
             }
-
         }
 
         private async Task TrimModifiers(string itemTag)

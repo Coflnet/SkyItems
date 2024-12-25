@@ -84,6 +84,7 @@ namespace Coflnet.Sky.Items.Services
 
                     Console.WriteLine($"Info: updated {sum} entries");
                     consumeCount.Inc(batch.Count());
+                    await service.TrimModifiers();
                 }
                 catch (Exception e)
                 {
