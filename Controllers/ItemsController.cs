@@ -122,7 +122,7 @@ namespace Coflnet.Sky.Items.Controllers
 
             if (itemTag != "*")
             {
-                var any = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
+                var any = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _)) || m.Key.EndsWith("uuid")).ToList();
                 if (any.Count > 0)
                     toTrimQueue.Tags.Enqueue(itemTag);
             }
