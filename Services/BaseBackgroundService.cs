@@ -62,6 +62,7 @@ namespace Coflnet.Sky.Items.Services
                 while (!stoppingToken.IsCancellationRequested)
                 {
                     await PullItemsFromHypixelApi();
+                    await BuildItemModifierCache();
                     await Task.Delay(TimeSpan.FromHours(1));
                 }
             });
@@ -98,6 +99,20 @@ namespace Coflnet.Sky.Items.Services
             await flipCons;
             logger.LogInformation("consuming ended");
             throw new Exception("consuming ended");
+        }
+
+        private async Task BuildItemModifierCache()
+        {
+            using var scope = scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<ItemService>();
+            try
+            {
+                await service.GetAllModifiersAsync("*", true);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "building item modifier cache");
+            }
         }
 
         private async Task PullItemsFromHypixelApi()
@@ -379,7 +394,7 @@ namespace Coflnet.Sky.Items.Services
                 item.Category = ItemCategory.PET;
             else if ((item.Tag.StartsWith("RUNE_") || item.Tag.StartsWith("UNIQUE_RUNE")) && item.Category != ItemCategory.RUNE)
                 item.Category = ItemCategory.RUNE;
-            else if ((item.Tag.StartsWith("DYE_") || item.Tag.EndsWith("_DYE") )&& item.Category == ItemCategory.UNKNOWN)
+            else if ((item.Tag.StartsWith("DYE_") || item.Tag.EndsWith("_DYE")) && item.Category == ItemCategory.UNKNOWN)
                 item.Category = ItemCategory.ArmorDye;
             else if (item.Tag.EndsWith("_TRAVEL_SCROLL"))
                 item.Category = ItemCategory.TRAVEL_SCROLL;
@@ -542,18 +557,13 @@ namespace Coflnet.Sky.Items.Services
                         var count = await context.SaveChangesAsync();
                         Console.WriteLine("updated entries " + count);
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         Console.WriteLine("Could not migrate" + JsonConvert.SerializeObject(dbItem, Formatting.Indented));
-                        throw e;
+                        throw;
                     }
                 }
             }
-        }
-
-        private ItemService GetService()
-        {
-            return scopeFactory.CreateScope().ServiceProvider.GetRequiredService<ItemService>();
         }
     }
 }

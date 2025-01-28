@@ -13,9 +13,11 @@ using MoreLinq;
 
 namespace Coflnet.Sky.Items.Services
 {
-    public class ToTrimQueue
+    public class ItemMetaStorage
     {
-        public ConcurrentQueue<string> Tags { get; set; } = new();
+        public ConcurrentQueue<string> ToTrimTags { get; set; } = new();
+        public Dictionary<string, HashSet<string>> ModifiersCache { get; set; } = new();
+        public DateTime LastUpdate { get; set; } = DateTime.MinValue;
     }
     public class ItemService
     {
@@ -24,13 +26,13 @@ namespace Coflnet.Sky.Items.Services
         private static HashSet<string> irrelevantMod = new() { "uid", "uuid", "exp", "spawnedFor", "bossId", "uniqueId" };
 
         public static IEnumerable<string> IgnoredSlugs => irrelevantMod;
-        private ToTrimQueue toTrimQueue;
+        private ItemMetaStorage storage;
 
-        public ItemService(ItemDbContext db, ILogger<ItemService> logger, ToTrimQueue toTrimQueue)
+        public ItemService(ItemDbContext db, ILogger<ItemService> logger, ItemMetaStorage toTrimQueue)
         {
             this.db = db;
             this.logger = logger;
-            this.toTrimQueue = toTrimQueue;
+            this.storage = toTrimQueue;
         }
 
         public async Task<int> AddItemDetailsForAuctions(IEnumerable<SaveAuction> auctions)
@@ -148,7 +150,7 @@ namespace Coflnet.Sky.Items.Services
 
         public async Task TrimModifiers()
         {
-            if (toTrimQueue.Tags.TryDequeue(out string itemTag))
+            if (storage.ToTrimTags.TryDequeue(out string itemTag))
             {
                 try
                 {
@@ -381,6 +383,53 @@ namespace Coflnet.Sky.Items.Services
                 db.Add(value);
                 db.Update(item);
             }
+        }
+
+        internal async Task<Dictionary<string, HashSet<string>>> GetAllModifiersAsync(string itemTag, bool force = false)
+        {
+            IQueryable<Modifiers> select = db.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).SelectMany(i => i.Modifiers);
+            if (itemTag == "*")
+            {
+                if (storage.LastUpdate > DateTime.UtcNow.AddHours(-2) && !force)
+                    return storage.ModifiersCache;
+                var extraIgnore = new string[] { "initiator_player", "abr", "name", "recipient_id", "recipient_name", "alias", "players_clicked", "player" };
+                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
+                select = db.Modifiers.Where(m => !toIgnore.Contains(m.Slug) && !EF.Functions.Like(m.Slug, "%uuid"));
+
+            }
+            var allMods = await select.Where(v => v.Value != null)
+                        .GroupBy(m => new { m.Slug, m.Value })
+                        .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
+                        .ToListAsync();
+
+            if (itemTag != "*")
+            {
+                var any = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _)) || m.Key.EndsWith("uuid")).ToList();
+                if (any.Count > 0)
+                    storage.ToTrimTags.Enqueue(itemTag);
+            }
+
+            var result = allMods.GroupBy(m => m.Key.Slug.StartsWith("!ench") ? m.Key.Slug.ToLower() : m.Key.Slug).ToDictionary(m => m.Key, m =>
+            {
+                var ordered = m
+                    .OrderBy(m => int.TryParse(m.Key.Value, out int v)
+                    ? (v < 10 ? v - 10_000_000 : 10 - m.Key.Value.Length - v / 1000)
+                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value);
+                return ordered.Take(189).Append(ordered.Last()).ToHashSet();
+            });
+            if (itemTag == "*")
+            {
+                storage.ModifiersCache = result;
+                storage.LastUpdate = DateTime.UtcNow;
+            }
+            if(force)
+            {
+                foreach (var item in allMods.GroupBy(m=>m.Key.Slug).Where(m=>m.Count() > 850))
+                {
+                    Console.WriteLine($"Slug {item.Key} has {item.Count()} values");
+                }
+            }
+            return result;
         }
     }
 }

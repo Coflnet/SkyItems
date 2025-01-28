@@ -54,7 +54,7 @@ namespace Coflnet.Sky.Items
             services.AddHostedService<BaseBackgroundService>();
             services.AddJaeger(Configuration);
             services.AddTransient<ItemService>();
-            services.AddSingleton<ToTrimQueue>();
+            services.AddSingleton<ItemMetaStorage>();
             services.AddResponseCompression();
             services.AddResponseCaching();
             services.AddMemoryCache();

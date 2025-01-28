@@ -21,7 +21,7 @@ namespace Coflnet.Sky.Items.Controllers
         private readonly ItemService service;
         private readonly ItemDbContext context;
         private readonly ILogger<ItemsController> logger;
-        private readonly ToTrimQueue toTrimQueue;
+        private readonly ItemMetaStorage toTrimQueue;
 
         /// <summary>
         /// Creates a new instance of <see cref="ItemsController"/>
@@ -30,7 +30,7 @@ namespace Coflnet.Sky.Items.Controllers
         /// <param name="context"></param>
         /// <param name="logger"></param>
         /// <param name="toTrimQueue"></param>
-        public ItemsController(ItemService service, ItemDbContext context, ILogger<ItemsController> logger, ToTrimQueue toTrimQueue)
+        public ItemsController(ItemService service, ItemDbContext context, ILogger<ItemsController> logger, ItemMetaStorage toTrimQueue)
         {
             this.service = service;
             this.context = context;
@@ -107,34 +107,7 @@ namespace Coflnet.Sky.Items.Controllers
         [Route("/item/{itemTag}/modifiers/all")]
         public async Task<Dictionary<string, HashSet<string>>> Modifiers(string itemTag)
         {
-            IQueryable<Modifiers> select = context.Items.Where(i => i.Tag == itemTag).Include(i => i.Modifiers).SelectMany(i => i.Modifiers);
-            if (itemTag == "*")
-            {
-                var extraIgnore = new string[] { "initiator_player", "abr", "name", "recipient_id", "recipient_name", "alias", "players_clicked", "player" };
-                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
-                select = context.Modifiers.Where(m => !toIgnore.Contains(m.Slug) && !EF.Functions.Like(m.Slug, "%uuid"));
-
-            }
-            var allMods = await select.Where(v => v.Value != null)
-                        .GroupBy(m => new { m.Slug, m.Value })
-                        .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
-                        .ToListAsync();
-
-            if (itemTag != "*")
-            {
-                var any = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _)) || m.Key.EndsWith("uuid")).ToList();
-                if (any.Count > 0)
-                    toTrimQueue.Tags.Enqueue(itemTag);
-            }
-
-            return allMods.GroupBy(m => m.Key.Slug.StartsWith("!ench") ? m.Key.Slug.ToLower() : m.Key.Slug).ToDictionary(m => m.Key, m =>
-            {
-                var ordered = m
-                    .OrderBy(m => int.TryParse(m.Key.Value, out int v)
-                    ? (v < 10 ? v - 10_000_000 : 10 - m.Key.Value.Length - v / 1000)
-                    : (m.Key.Value.Length - m.occured)).Select(m => m.Key.Value);
-                return ordered.Take(149).Append(ordered.Last()).ToHashSet();
-            });
+            return await service.GetAllModifiersAsync(itemTag);
         }
         /// <summary>
         /// modifiers for a specific item
