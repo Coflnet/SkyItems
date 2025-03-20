@@ -96,9 +96,18 @@ namespace Coflnet.Sky.Items.Services
 
             }, stoppingToken, "sky-items", 32);
 
+            await UpdateAliases();
+
             await flipCons;
             logger.LogInformation("consuming ended");
             throw new Exception("consuming ended");
+        }
+
+        private async Task UpdateAliases()
+        {
+            using var scope = scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<ItemService>();
+            await service.UpdateAliases();
         }
 
         private async Task BuildItemModifierCache()

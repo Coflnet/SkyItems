@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections;
 using System.Collections.Generic;
 using Coflnet.Sky.Items.Services;
+using System.Text.RegularExpressions;
 
 namespace Coflnet.Sky.Items.Controllers
 {
@@ -136,7 +137,7 @@ namespace Coflnet.Sky.Items.Controllers
                     .Select(i => new
                     {
                         Name = i.Name,
-                        CommonName = i.Modifiers.Where(m => m.Slug == "name" && m.Value != null)
+                        CommonName = i.Modifiers.Where(m => (m.Slug == "name" || m.Slug == "alias")&& m.Value != null)
                         .OrderByDescending(m => m.FoundCount)
                         .Select(m => m.Value).FirstOrDefault(),
                         i.Tag,
@@ -352,7 +353,7 @@ namespace Coflnet.Sky.Items.Controllers
             var tagified = term.ToUpper().Replace(' ', '_');
             if (tagified.EndsWith("_PET"))
                 tagified = "PET_" + tagified.Replace("_PET", "");
-            if (tagified == term)
+            if (tagified == term && Regex.IsMatch(term, @"[a-zA-Z]"))
                 return context.Items.Where(i => i.Tag == tagified).OrderBy(i => i.Id);
             var namingModifiers = new HashSet<string>() { "name", "alias", "abr" };
             var select = context.Items

@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Newtonsoft.Json;
 using MoreLinq;
+using System.Text.RegularExpressions;
 
 namespace Coflnet.Sky.Items.Services
 {
@@ -422,14 +423,35 @@ namespace Coflnet.Sky.Items.Services
                 storage.ModifiersCache = result;
                 storage.LastUpdate = DateTime.UtcNow;
             }
-            if(force)
+            if (force)
             {
-                foreach (var item in allMods.GroupBy(m=>m.Key.Slug).Where(m=>m.Count() > 850))
+                foreach (var item in allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 850))
                 {
                     Console.WriteLine($"Slug {item.Key} has {item.Count()} values");
                 }
             }
             return result;
+        }
+
+        internal async Task UpdateAliases()
+        {
+            foreach (var item in db.Items.Select(i => new { i.Name, i.Tag, i.Id }).Where(i=>i.Name != null).ToList())
+            {
+                if (!Regex.IsMatch(item.Name, @"\d\d\d"))
+                    continue;
+                var dbItem = await db.Items.Where(i => i.Id == item.Id)
+                        .Include(i => i.Modifiers).FirstAsync();
+                var numberpart = Regex.Match(item.Name, @"\d\d\d+").Value;
+                if(dbItem.Modifiers.Any(m=>m.Slug == "alias" && m.Value == numberpart))
+                    continue;
+                dbItem.Modifiers.Add(new Modifiers()
+                {
+                    Slug = "alias",
+                    Value = numberpart
+                });
+                logger.LogInformation("Alias for {tag} is {alias}", item.Tag, numberpart);
+                await db.SaveChangesAsync();
+            }
         }
     }
 }
