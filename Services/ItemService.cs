@@ -171,14 +171,14 @@ namespace Coflnet.Sky.Items.Services
                         .GroupBy(m => new { m.Slug, m.Value })
                         .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
                         .ToListAsync();
-            var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => int.TryParse(i.Key.Value, out _))).ToList();
+            var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i =>i.Key.Value == "exists" || float.TryParse(i.Key.Value, out _))).ToList();
             foreach (var group in toTrim)
             {
-                var max = group.Max(i => int.Parse(i.Key.Value));
-                var min = group.Min(i => int.Parse(i.Key.Value));
+                var max = group.Max(i => float.Parse(i.Key.Value));
+                var min = group.Min(i => float.Parse(i.Key.Value));
                 foreach (var item in group.OrderByDescending(i => i.occured).Skip(148).Take(5))
                 {
-                    if (int.Parse(item.Key.Value) == max || int.Parse(item.Key.Value) == min)
+                    if (float.Parse(item.Key.Value) == max || float.Parse(item.Key.Value) == min)
                         continue;
                     var element = select.Where(m => m.Slug == item.Key.Slug && m.Value == item.Key.Value).FirstOrDefault();
                     db.Modifiers.Remove(element);

@@ -84,5 +84,6 @@ namespace Coflnet.Sky.Items.Models
         MEMENTO,
         ABIPHONE,
         Fossil,
+        FISHING_ROD_PART,
     }
 }
