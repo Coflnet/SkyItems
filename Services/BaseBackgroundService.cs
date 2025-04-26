@@ -296,7 +296,7 @@ namespace Coflnet.Sky.Items.Services
                 match.NpcSellPrice = item.NpcSellPrice ?? -1;
                 match.MinecraftType = item.Material;
                 match.Durability = (short)item.Durability;
-                if (match.IconUrl == null && item.Material.StartsWith("LEATHER"))
+                if ((match.IconUrl == null || match.IconUrl.StartsWith("https://skycrypt.coflnet") )&& item.Material.StartsWith("LEATHER"))
                 {
                     AssignIconBasedOnColor(item, match);
                 }
@@ -373,11 +373,11 @@ namespace Coflnet.Sky.Items.Services
         private void AssignIconBasedOnColor(Models.Hypixel.Item item, Models.Item match)
         {
             if (item.Color == null)
-                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/item/" + item.Material;
+                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/api/item/" + item.Material;
             else
             {
                 var color = (NBT.GetColor(item.Color.Replace(",", ":")) >> 8) & 0xFFFFFF;
-                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/leather/" + item.Material.Split('_').Last().ToLower() + "/" + color.ToString("X").PadLeft(6, '0');
+                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/api/leather/" + item.Material.Split('_').Last().ToLower() + "/" + color.ToString("X").PadLeft(6, '0');
                 Console.WriteLine($"item {item.Id} has color {color.ToString("X").PadLeft(6, '0')} from {item.Color}");
             }
         }
