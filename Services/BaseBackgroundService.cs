@@ -300,8 +300,14 @@ namespace Coflnet.Sky.Items.Services
                 {
                     AssignIconBasedOnColor(item, match);
                 }
+                if (match.IconUrl != null && match.IconUrl.EndsWith("/-.png"))
+                {
+                    // display underlying material instead
+                    match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/api/item/" + item.Material;
+                    logger.LogInformation($"Item {item.Id} had invalid icon, using {match.IconUrl}");
+                }
                 if (!string.IsNullOrEmpty(item.Tier) && Enum.TryParse<Tier>(item.Tier, out var tier))
-                    match.Tier = tier;
+                        match.Tier = tier;
                 if (item.Glowing ?? false)
                     match.Flags |= ItemFlags.GLOWING;
                 if (item.Museum)
