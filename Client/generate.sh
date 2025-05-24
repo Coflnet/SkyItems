@@ -1,10 +1,10 @@
-VERSION=0.18.0
+VERSION=0.19.0
 PACKAGE_NAME=Coflnet.Sky.Items.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
 -g csharp \
--o /local/out --additional-properties=packageName=$PACKAGE_NAME,packageVersion=$VERSION,licenseId=MIT,targetFramework=net6.0
+-o /local/out --additional-properties=packageName=$PACKAGE_NAME,packageVersion=$VERSION,licenseId=MIT,targetFramework=net8.0
 
 cd out
 csProjPath=src/$PACKAGE_NAME/$PACKAGE_NAME.csproj
@@ -32,6 +32,7 @@ CategoryFile="src/$PACKAGE_NAME/Model/ItemCategory.cs"
 sed -i 's/PETITEM/PET_ITEM/g' $CategoryFile
 sed -i 's/REFORGESTONE/REFORGE_STONE/g' $CategoryFile
 sed -i 's/TRAVELSCROLL/TRAVEL_SCROLL/g' $CategoryFile
+sed -i 's/FISHINGRODPART/FISHING_ROD_PART/g' $CategoryFile
 sed -i 's/FISHINGROD/FISHING_ROD/g' $CategoryFile
 sed -i 's/DUNGEONPASS/DUNGEON_PASS/g' $CategoryFile
 sed -i 's/ARROWPOISON/ARROW_POISON/g' $CategoryFile
