@@ -1,10 +1,10 @@
-VERSION=0.19.0
+VERSION=0.20.0
 PACKAGE_NAME=Coflnet.Sky.Items.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
 -i http://localhost:5014/swagger/v1/swagger.json \
 -g csharp \
--o /local/out --additional-properties=packageName=$PACKAGE_NAME,packageVersion=$VERSION,licenseId=MIT,targetFramework=net8.0
+-o /local/out --additional-properties=packageName=$PACKAGE_NAME,packageVersion=$VERSION,licenseId=MIT,targetFramework=net8.0,library=restsharp
 
 cd out
 csProjPath=src/$PACKAGE_NAME/$PACKAGE_NAME.csproj
