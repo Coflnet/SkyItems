@@ -296,7 +296,7 @@ namespace Coflnet.Sky.Items.Services
                 match.NpcSellPrice = item.NpcSellPrice ?? -1;
                 match.MinecraftType = item.Material;
                 match.Durability = (short)item.Durability;
-                if ((match.IconUrl == null || match.IconUrl.StartsWith("https://skycrypt.coflnet") )&& item.Material.StartsWith("LEATHER"))
+                if ((match.IconUrl == null || match.IconUrl.StartsWith("https://skycrypt.coflnet")) && item.Material.StartsWith("LEATHER"))
                 {
                     AssignIconBasedOnColor(item, match);
                 }
@@ -307,7 +307,7 @@ namespace Coflnet.Sky.Items.Services
                     logger.LogInformation($"Item {item.Id} had invalid icon, using {match.IconUrl}");
                 }
                 if (!string.IsNullOrEmpty(item.Tier) && Enum.TryParse<Tier>(item.Tier, out var tier))
-                        match.Tier = tier;
+                    match.Tier = tier;
                 if (item.Glowing ?? false)
                     match.Flags |= ItemFlags.GLOWING;
                 if (item.Museum)
@@ -370,6 +370,9 @@ namespace Coflnet.Sky.Items.Services
                     match.Category = ItemCategory.DEEP_CAVERNS;
                 else if (item.DungeonItem ?? false)
                     match.Category = ItemCategory.DUNGEON_ITEM;
+
+                if (!string.IsNullOrEmpty(item.Category) && !Enum.TryParse<ItemCategory>(item.Category, true, out _) && item.Category != "NONE")
+                    logger.LogInformation($"Item {item.Id} has category {item.Category}, which is unknown");
                 // override if matching
                 AssignCategory(match);
             }

@@ -1,4 +1,4 @@
-VERSION=0.20.0
+VERSION=0.20.1
 PACKAGE_NAME=Coflnet.Sky.Items.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
@@ -45,6 +45,8 @@ sed -i 's/DEEPCAVERNS/DEEP_CAVERNS/g' $CategoryFile
 sed -i 's/TALISMANENRICHMENT/TALISMAN_ENRICHMENT/g' $CategoryFile
 sed -i 's/THEFISH/THE_FISH/g' $CategoryFile
 sed -i 's/PETSKIN/PET_SKIN/g' $CategoryFile
+sed -i 's/CARNIVALMASK/CARNIVAL_MASK/g' $CategoryFile
+sed -i 's/FISHINGNET/FISHING_NET/g' $CategoryFile
 echo updated $CategoryFile
 
 dotnet pack

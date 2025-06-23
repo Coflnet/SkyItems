@@ -85,5 +85,14 @@ namespace Coflnet.Sky.Items.Models
         ABIPHONE,
         Fossil,
         FISHING_ROD_PART,
+        VACUUM,
+        CHISEL,
+        FISHING_NET,
+        LASSO,
+        TRAP,
+        DEPLOYABLE,
+        LONGSWORD,
+        BOOSTER,
+        CARNIVAL_MASK
     }
 }
