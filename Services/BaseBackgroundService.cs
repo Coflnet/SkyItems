@@ -538,6 +538,13 @@ namespace Coflnet.Sky.Items.Services
                         }
                     }
                     AssignCategory(item);
+                    if (item.Tag.StartsWith("SHARD_") && item.Name.StartsWith("SHARD_"))
+                    {
+                        // shard names are not set correctly
+                        item.Name = ItemDetails.TagToName(item.Tag.Substring(6).Replace('_', ' ').ToLower()) + " Shard";
+                        context.Update(item);
+                        Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
+                    }
                     context.Update(item);
                 }
                 try
