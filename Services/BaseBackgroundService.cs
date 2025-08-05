@@ -588,6 +588,24 @@ namespace Coflnet.Sky.Items.Services
                         throw;
                     }
                 }
+
+                try
+                {
+                    var toRename = await context.Items
+                        .Where(i => i.Tag == "SHARD_SEA_ARCHER").ToListAsync();
+                    foreach (var item in toRename)
+                    {
+                        if (item.Tag == "SHARD_SEA_ARCHER")
+                            item.Name = "Bogged Shard";
+                        context.Update(item);
+                    }
+                    var count = await context.SaveChangesAsync();
+                    Console.WriteLine("renamed " + count + " items from hypixel");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Could not rename shard " + e);
+                }
             }
         }
     }
