@@ -545,6 +545,13 @@ namespace Coflnet.Sky.Items.Services
                         context.Update(item);
                         Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
                     }
+                    if (item.Tag.StartsWith("ESSENCE_") && item.Name.StartsWith("ESSENCE_"))
+                    {
+                        // essence names are not set correctly
+                        item.Name = ItemDetails.TagToName(item.Tag.Substring(8).Replace('_', ' ').ToLower()) + " Essence";
+                        context.Update(item);
+                        Console.WriteLine($"fixed essence name for {item.Tag} {item.Name}");
+                    }
                     context.Update(item);
                 }
                 try
