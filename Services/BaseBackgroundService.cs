@@ -545,13 +545,6 @@ namespace Coflnet.Sky.Items.Services
                         context.Update(item);
                         Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
                     }
-                    if (item.Tag.StartsWith("ESSENCE_") && item.Name.StartsWith("ESSENCE_"))
-                    {
-                        // essence names are not set correctly
-                        item.Name = ItemDetails.TagToName(item.Tag.Substring(8).Replace('_', ' ').ToLower()) + " Essence";
-                        context.Update(item);
-                        Console.WriteLine($"fixed essence name for {item.Tag} {item.Name}");
-                    }
                     context.Update(item);
                 }
                 try
@@ -599,11 +592,19 @@ namespace Coflnet.Sky.Items.Services
                 try
                 {
                     var toRename = await context.Items
-                        .Where(i => i.Tag == "SHARD_SEA_ARCHER").ToListAsync();
+                        .Where(i => i.Tag == "SHARD_SEA_ARCHER" || EF.Functions.Like(i.Tag, "ESSENCE_%")).ToListAsync();
                     foreach (var item in toRename)
                     {
                         if (item.Tag == "SHARD_SEA_ARCHER")
                             item.Name = "Bogged Shard";
+
+                        if (item.Tag.StartsWith("ESSENCE_") && item.Name.StartsWith("ESSENCE_"))
+                        {
+                            // essence names are not set correctly
+                            item.Name = ItemDetails.TagToName(item.Tag.Substring(8).Replace('_', ' ').ToLower()) + " Essence";
+                            context.Update(item);
+                            Console.WriteLine($"fixed essence name for {item.Tag} {item.Name}");
+                        }
                         context.Update(item);
                     }
                     var count = await context.SaveChangesAsync();
