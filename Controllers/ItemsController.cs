@@ -287,12 +287,10 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async IAsyncEnumerable<ItemPreview> GetItemInfo()
         {
-            var res = context.Items
-                    .Include(i => i.Modifiers.Where(m => m.Slug == "name")).AsAsyncEnumerable();
+            var res = context.Items.AsAsyncEnumerable();
 
             await foreach (var item in res)
             {
-                FixNameIfNull(item);
                 yield return new(item.Tag, item.Name);
             }
         }
