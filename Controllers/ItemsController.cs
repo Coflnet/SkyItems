@@ -287,7 +287,7 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async IAsyncEnumerable<ItemPreview> GetItemInfo()
         {
-            var res = context.Items.AsAsyncEnumerable();
+            var res = context.Items.Select(i=>new{i.Tag,i.Name}).AsAsyncEnumerable();
 
             await foreach (var item in res)
             {
