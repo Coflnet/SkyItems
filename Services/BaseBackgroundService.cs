@@ -247,6 +247,7 @@ namespace Coflnet.Sky.Items.Services
                     await context.SaveChangesAsync();
                 }
             }
+            logger.LogInformation("Loaded {count} fire sale items", fireSaleItems.Sales.Count);
 
         }
 
