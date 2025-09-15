@@ -429,6 +429,44 @@ namespace Coflnet.Sky.Items.Services
                 {
                     Console.WriteLine($"Slug {item.Key} has {item.Count()} values on {itemTag}");
                 }
+                var tooMany = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 1250).ToList();
+                if (tooMany.Count() > 1)
+                {
+                    foreach (var item in tooMany)
+                    {
+                        var key = item.Key;
+                        // group modifiers by item and keep only the numeric min and max per item, delete the rest
+                        var modsWithItem = await db.Modifiers.Where(m => m.Slug == key).Include(m => m.Item).ToListAsync();
+                        var toRemove = new List<Modifiers>();
+
+                        foreach (var group in modsWithItem.Where(m => m.Item != null).GroupBy(m => m.Item.Id))
+                        {
+                            var numeric = group
+                                .Where(m => float.TryParse(m.Value, out _))
+                                .Select(m => new { Mod = m, Val = float.Parse(m.Value) })
+                                .OrderBy(x => x.Val)
+                                .ToList();
+
+                            if (numeric.Count <= 2)
+                                continue;
+
+                            var keepIds = new HashSet<int> { numeric.First().Mod.Id, numeric.Last().Mod.Id };
+
+                            foreach (var entry in numeric)
+                            {
+                                if (!keepIds.Contains(entry.Mod.Id))
+                                    toRemove.Add(entry.Mod);
+                            }
+                        }
+
+                        if (toRemove.Count > 0)
+                        {
+                            db.Modifiers.RemoveRange(toRemove);
+                            await db.SaveChangesAsync();
+                            logger.LogInformation("Removed {count} modifiers for slug {slug}", toRemove.Count, key);
+                        }
+                    }
+                }
             }
             return result;
         }
