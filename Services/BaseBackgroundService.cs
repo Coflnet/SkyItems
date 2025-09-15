@@ -265,7 +265,9 @@ namespace Coflnet.Sky.Items.Services
                     match.Tag = item.Id;
                     context.Add(match);
                 }
-                match.Name = item.Name.Truncate(44);
+                if (!match.Tag.StartsWith("PET_SKIN"))
+                // they name pet skins without spaces different from what they are called in game so this is assigned through ah sales
+                    match.Name = item.Name.Truncate(44);
                 if (match.Name != item.Name && !match.Modifiers.Where(m => m.Slug == "abr").Any())
                 {
                     match.Modifiers.Add(new Modifiers()
@@ -538,7 +540,10 @@ namespace Coflnet.Sky.Items.Services
                             context.Update(item);
                         }
                     }
+                    var previousCategory = item.Category;
                     AssignCategory(item);
+                    if (previousCategory != item.Category)
+                        context.Update(item);
                     if (item.Tag.StartsWith("SHARD_") && item.Name.StartsWith("SHARD_"))
                     {
                         // shard names are not set correctly
@@ -546,7 +551,20 @@ namespace Coflnet.Sky.Items.Services
                         context.Update(item);
                         Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
                     }
-                    context.Update(item);
+                    if (item.Tag.StartsWith("PET_SKIN") && !(item.Name?.Contains("Skin") ?? false))
+                    {
+                        var name = await context.Modifiers.Where(i => i.Slug == "name" && i.Value != null && i.Value.Contains("Skin") && i.ItemId == item.Id)
+                            .OrderByDescending(i => i.FoundCount)
+                            .Select(i => i.Value).FirstOrDefaultAsync();
+                        if (name != null)
+                        {
+                            item.Name = name;
+                            item.NpcBuyPrice = 0;
+                            context.Update(item);
+                            await context.SaveChangesAsync();
+                            Console.WriteLine($"fixed pet skin name for {item.Tag} {item.Name}");
+                        }
+                    }
                 }
                 try
                 {

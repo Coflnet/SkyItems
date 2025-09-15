@@ -427,7 +427,7 @@ namespace Coflnet.Sky.Items.Services
             {
                 foreach (var item in allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 850))
                 {
-                    Console.WriteLine($"Slug {item.Key} has {item.Count()} values");
+                    Console.WriteLine($"Slug {item.Key} has {item.Count()} values on {itemTag}");
                 }
             }
             return result;
