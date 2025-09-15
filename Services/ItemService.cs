@@ -436,7 +436,7 @@ namespace Coflnet.Sky.Items.Services
                     {
                         var key = item.Key;
                         // group modifiers by item and keep only the numeric min and max per item, delete the rest
-                        var modsWithItem = await db.Modifiers.Where(m => m.Slug == key).Include(m => m.Item).ToListAsync();
+                        var modsWithItem = await db.Modifiers.Where(m => m.Slug == key).Include(m => m.Item).Take(20_000).ToListAsync();
                         var toRemove = new List<Modifiers>();
 
                         foreach (var group in modsWithItem.Where(m => m.Item != null).GroupBy(m => m.Item.Id))
