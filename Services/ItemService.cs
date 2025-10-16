@@ -394,7 +394,7 @@ namespace Coflnet.Sky.Items.Services
                 if (storage.LastUpdate > DateTime.UtcNow.AddHours(-2) && !force)
                     return storage.ModifiersCache;
                 var extraIgnore = new string[] { "initiator_player", "abr", "name", "recipient_id", "recipient_name", "alias", "players_clicked", "player" };
-                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Concat(extraIgnore));
+                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Where(s=>s != "uid").Concat(extraIgnore));
                 select = db.Modifiers.Where(m => !toIgnore.Contains(m.Slug) && !EF.Functions.Like(m.Slug, "%uuid"));
 
             }
