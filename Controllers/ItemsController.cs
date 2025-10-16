@@ -220,9 +220,10 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "preventUrlMigration" })]
         public async Task<Item> GetItemInfo(string itemTag, bool preventUrlMigration = false)
         {
+            var list = ItemService.IgnoredSlugs.Where(m => m != "uid").ToHashSet();
             string[] altTags = ["PET_SKIN_" + itemTag, itemTag];
             var res = await context.Items.Where(i => altTags.Contains(i.Tag))
-                    .Include(i => i.Modifiers.Where(m => !ItemService.IgnoredSlugs.Contains(m.Slug)))
+                    .Include(i => i.Modifiers.Where(m => !list.Contains(m.Slug)))
                     .FirstOrDefaultAsync();
             if (res == null)
                 return null;
