@@ -544,12 +544,31 @@ namespace Coflnet.Sky.Items.Services
                     AssignCategory(item);
                     if (previousCategory != item.Category)
                         context.Update(item);
-                    if (item.Tag.StartsWith("SHARD_") && item.Name.StartsWith("SHARD_"))
+                    if (item.Tag.StartsWith("SHARD_"))
                     {
-                        // shard names are not set correctly
-                        item.Name = ItemDetails.TagToName(item.Tag.Substring(6).Replace('_', ' ').ToLower()) + " Shard";
-                        context.Update(item);
-                        Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
+                        // shard names are not set correctly in some cases — compute canonical name from tag
+                        var baseName = ItemDetails.TagToName(item.Tag.Substring(6).Replace('_', ' ').ToLower());
+                        var newName = baseName + " Shard";
+
+                        // special-case mappings for a few historically incorrect or preferred names
+                        newName = item.Tag switch
+                        {
+                            // "Cinderbat" should be one word
+                            "SHARD_CINDER_BAT" => "Cinderbat Shard",
+                            // prefer "End Stone Protector Shard" (space between End and stone)
+                            "SHARD_ENDSTONE_PROTECTOR" => "End Stone Protector Shard",
+                            // historical naming: prefer "Loch Emperor Shard" over "Sea Emperor Shard"
+                            "SHARD_SEA_EMPEROR" => "Loch Emperor Shard",
+                            _ => newName
+                        };
+
+                        // only update when the name actually differs to avoid unnecessary writes
+                        if (item.Name != newName)
+                        {
+                            item.Name = newName;
+                            context.Update(item);
+                            Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
+                        }
                     }
                     if (item.Tag.StartsWith("PET_SKIN") && !(item.Name?.Contains("Skin") ?? false))
                     {
