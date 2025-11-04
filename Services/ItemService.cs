@@ -86,7 +86,7 @@ namespace Coflnet.Sky.Items.Services
                         occurences.AddOrUpdate((auction.Tag, "reforge", auction.Reforge.ToString()), k => 1, (k, v) => v + 1);
                         occurences.AddOrUpdate((auction.Tag, "count", auction.Count.ToString()), k => 1, (k, v) => v + 1);
                         occurences.AddOrUpdate((auction.Tag, "tier", auction.Tier.ToString()), k => 1, (k, v) => v + 1);
-                        occurences.AddOrUpdate((auction.Tag, "name", ItemReferences.RemoveReforgesAndLevel(auction.ItemName)), k => 1, (k, v) => v + 1);
+                        occurences.AddOrUpdate((auction.Tag, "name", GetName(auction)), k => 1, (k, v) => v + 1);
 
                         var descKey = (auction.Tag, auction.Context["lore"]);
                         descriptions.AddOrUpdate(descKey, k => 1, (k, v) => v + 1);
@@ -130,6 +130,13 @@ namespace Coflnet.Sky.Items.Services
             return count;
         }
 
+        private static string GetName(SaveAuction auction)
+        {
+            if (auction.Reforge == ItemReferences.Reforge.None && !auction.ItemName.Contains("Lvl"))
+                return auction.ItemName; // some items actually contain a reforge name but can't be reforged
+            return ItemReferences.RemoveReforgesAndLevel(auction.ItemName);
+        }
+
         private async Task AddDescriptionsIfNotExisting(ConcurrentDictionary<(string, string), int> descriptions)
         {
             var itemTags = descriptions.Keys.Select(d => d.Item1).ToHashSet();
@@ -171,7 +178,7 @@ namespace Coflnet.Sky.Items.Services
                         .GroupBy(m => new { m.Slug, m.Value })
                         .Select(i => new { i.Key, occured = i.Sum(m => m.FoundCount) })
                         .ToListAsync();
-            var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i =>i.Key.Value == "exists" || float.TryParse(i.Key.Value, out _))).ToList();
+            var toTrim = allMods.GroupBy(m => m.Key.Slug).Where(m => m.Count() > 150 && m.All(i => i.Key.Value == "exists" || float.TryParse(i.Key.Value, out _))).ToList();
             foreach (var group in toTrim)
             {
                 var max = group.Max(i => float.Parse(i.Key.Value));
@@ -394,7 +401,7 @@ namespace Coflnet.Sky.Items.Services
                 if (storage.LastUpdate > DateTime.UtcNow.AddHours(-2) && !force)
                     return storage.ModifiersCache;
                 var extraIgnore = new string[] { "initiator_player", "abr", "name", "recipient_id", "recipient_name", "alias", "players_clicked", "player" };
-                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Where(s=>s != "uid").Concat(extraIgnore));
+                var toIgnore = new HashSet<string>(ItemService.IgnoredSlugs.Where(s => s != "uid").Concat(extraIgnore));
                 select = db.Modifiers.Where(m => !toIgnore.Contains(m.Slug) && !EF.Functions.Like(m.Slug, "%uuid"));
 
             }
@@ -473,14 +480,14 @@ namespace Coflnet.Sky.Items.Services
 
         internal async Task UpdateAliases()
         {
-            foreach (var item in db.Items.Select(i => new { i.Name, i.Tag, i.Id }).Where(i=>i.Name != null).ToList())
+            foreach (var item in db.Items.Select(i => new { i.Name, i.Tag, i.Id }).Where(i => i.Name != null).ToList())
             {
                 if (!Regex.IsMatch(item.Name, @"\d\d\d"))
                     continue;
                 var dbItem = await db.Items.Where(i => i.Id == item.Id)
                         .Include(i => i.Modifiers).FirstAsync();
                 var numberpart = Regex.Match(item.Name, @"\d\d\d+").Value;
-                if(dbItem.Modifiers.Any(m=>m.Slug == "alias" && m.Value == numberpart))
+                if (dbItem.Modifiers.Any(m => m.Slug == "alias" && m.Value == numberpart))
                     continue;
                 dbItem.Modifiers.Add(new Modifiers()
                 {
