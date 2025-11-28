@@ -157,14 +157,50 @@ namespace Coflnet.Sky.Items.Services
 
             using var scope = scopeFactory.CreateScope();
             using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
-            var items = await context.Items.Where(i => tags.Contains(i.Tag)).ToListAsync();
+            var items = await context.Items
+                .Where(i => tags.Contains(i.Tag))
+                .Include(i => i.Modifiers.Where(m => m.Slug == "alias"))
+                .ToListAsync();
             foreach (var item in items)
             {
                 item.Flags |= ItemFlags.BAZAAR;
+                AddEnchantmentRomanAlias(item);
                 context.Update(item);
             }
             await AddNewItemsFromBazaar(tags, context, items);
             await RemoveFlagForNonBazaarItems(tags, context);
+            await context.SaveChangesAsync();
+        }
+
+        private void AddEnchantmentRomanAlias(Models.Item item)
+        {
+            if (!item.Tag.StartsWith("ENCHANTMENT_"))
+                return;
+            // Check if alias already exists
+            if (item.Modifiers?.Any(m => m.Slug == "alias") == true)
+                return;
+            
+            var numberMatch = Regex.Match(item.Tag, @"_(\d+)$");
+            if (!numberMatch.Success)
+                return;
+            
+            var level = int.Parse(numberMatch.Groups[1].Value);
+            var romanLevel = Roman.To(level);
+            // Remove the number suffix and "ENCHANTMENT_" prefix, also remove "ULTIMATE_" if present
+            var nameBase = item.Tag.Substring(12);
+            if (nameBase.StartsWith("ULTIMATE_"))
+                nameBase = nameBase.Substring(9);
+            nameBase = Regex.Replace(nameBase, @"_\d+$", "");
+            var aliasName = ItemDetails.TagToName(nameBase.Replace('_', ' ').ToLower()) + " " + romanLevel;
+            
+            item.Modifiers ??= new HashSet<Modifiers>();
+            item.Modifiers.Add(new Modifiers()
+            {
+                Slug = "alias",
+                Type = Modifiers.DataType.STRING,
+                Value = aliasName.ToLower()
+            });
+            logger.LogInformation($"Added Roman alias '{aliasName.ToLower()}' for {item.Tag}");
         }
 
         private async Task RemoveFlagForNonBazaarItems(HashSet<string> tags, ItemDbContext context)
@@ -184,19 +220,21 @@ namespace Coflnet.Sky.Items.Services
         private async Task AddNewItemsFromBazaar(HashSet<string> tags, ItemDbContext context, List<Models.Item> items)
         {
             var existingTags = items.Select(i => i.Tag).ToHashSet();
-            foreach (var item in tags.Where(t => !existingTags.Contains(t)))
+            foreach (var tag in tags.Where(t => !existingTags.Contains(t)))
             {
                 var newItem = new Models.Item()
                 {
                     Flags = ItemFlags.BAZAAR,
-                    Tag = item,
-                    Name = item
+                    Tag = tag,
+                    Name = tag,
+                    Modifiers = new HashSet<Modifiers>()
                 };
-                if (item.StartsWith("ENCHANTMENT_"))
+                if (tag.StartsWith("ENCHANTMENT_"))
                 {
-                    newItem.Name = item.Substring(12).ToLower().Replace('_', ' ') + " enchant";
+                    newItem.Name = tag.Substring(12).ToLower().Replace('_', ' ') + " enchant";
                     newItem.MinecraftType = "ENCHANTED_BOOK";
                 }
+                AddEnchantmentRomanAlias(newItem);
                 context.Add(newItem);
                 logger.LogInformation("adding bazaar " + newItem.Tag);
             }
