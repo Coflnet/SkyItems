@@ -347,7 +347,7 @@ namespace Coflnet.Sky.Items.Controllers
 
         private IOrderedQueryable<Item> GetSelectForQueryTerm(string term)
         {
-            var clearedSearch = term;
+            var clearedSearch = Regex.Replace(term ?? "", @"[^\u0000-\u007F]+", "").Trim();
             short.TryParse(term, out short numericId);
             var tagified = term.ToUpper().Replace(' ', '_');
             if (tagified.EndsWith("_PET"))
