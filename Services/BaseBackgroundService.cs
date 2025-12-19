@@ -278,7 +278,7 @@ namespace Coflnet.Sky.Items.Services
                     item = new Models.Item()
                     {
                         Tag = sale.ItemId,
-                        Flags = ItemFlags.FIRE_SALE | ItemFlags.AUCTION,
+                        Flags = ItemFlags.FIRESALE | ItemFlags.AUCTION,
                         FirstSeen = DateTimeOffset.FromUnixTimeMilliseconds(sale.Start).UtcDateTime
                     };
                     context.Add(item);

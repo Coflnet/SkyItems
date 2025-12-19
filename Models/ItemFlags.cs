@@ -16,6 +16,6 @@ namespace Coflnet.Sky.Items.Models
         /// </summary>
         GLOWING = 16,
         MUSEUM = 32,
-        FIRE_SALE = 64,
+        FIRESALE = 64,
     }
 }

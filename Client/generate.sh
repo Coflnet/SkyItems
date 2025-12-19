@@ -1,4 +1,4 @@
-VERSION=0.20.2
+VERSION=0.20.5
 PACKAGE_NAME=Coflnet.Sky.Items.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
@@ -21,8 +21,9 @@ sed -i 's/= 1/= 0/g' $FlagFile
 sed -i 's/= 2/= 1/g' $FlagFile
 sed -i 's/= 3/= 2/g' $FlagFile
 sed -i 's/= 4/= 4/g' $FlagFile
-sed -i 's/= 5/= 8/g' $FlagFile
 sed -i 's/= 6/= 16/g' $FlagFile
+sed -i 's/= 8/= 64/g' $FlagFile
+sed -i 's/= 5/= 8/g' $FlagFile
 sed -i 's/= 7/= 32/g' $FlagFile
 
 
