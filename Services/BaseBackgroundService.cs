@@ -388,6 +388,15 @@ namespace Coflnet.Sky.Items.Services
                         throw;
                     }
                 }
+                if(item.Durability != 0 && item.Material == "INK_SACK")
+                {
+                    // color item make sure durability is set in url
+                    if(match.IconUrl == null || match.IconUrl == "https://static.coflnet.com/skyblock/item/351-0.png")
+                    {
+                        match.IconUrl = $"https://static.coflnet.com/skyblock/item/351-{item.Durability}.png";
+                        logger.LogInformation($"Item {item.Id} had no icon, using {match.IconUrl}");
+                    }
+                }
                 var tag = item.Id;
                 if (tag.EndsWith("_PERSONALITY"))
                     match.Category = ItemCategory.MINION_SKIN;
