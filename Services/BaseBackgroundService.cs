@@ -295,6 +295,15 @@ namespace Coflnet.Sky.Items.Services
             var batchInternal = await context.Items.Where(i => batchLookup.Contains(i.Tag)).Include(i => i.Modifiers).ToListAsync();
             foreach (var item in batch)
             {
+                // some items have color codes left in their name, remove that eg (%%red%%Volcanic Rock)
+                if(item.Name.StartsWith("%%"))
+                {
+                    var nameParts = item.Name.Split("%%");
+                    if(nameParts.Length >= 3)
+                    {
+                        item.Name = nameParts[2];
+                    }
+                }
                 var match = batchInternal.Where(i => i.Tag == item.Id).FirstOrDefault();
                 if (match == null)
                 {
