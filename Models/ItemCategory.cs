@@ -93,6 +93,12 @@ namespace Coflnet.Sky.Items.Models
         DEPLOYABLE,
         LONGSWORD,
         BOOSTER,
-        CARNIVAL_MASK
+        CARNIVAL_MASK,
+        SALT,
+        WATERING_CAN,
+        MUTATION,
+        FARMING_TOOL,
+        GARDEN_CHIP,
+        CONSUMABLE
     }
 }
