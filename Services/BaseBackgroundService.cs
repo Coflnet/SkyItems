@@ -562,7 +562,7 @@ namespace Coflnet.Sky.Items.Services
             Console.WriteLine("fixing items");
             using (var db = new HypixelContext())
             {
-                var items = await db.Items.ToListAsync();
+                //var items = await db.Items.ToListAsync();
                 var newItems = await context.Items.ToListAsync();
 
                 // remove any nulls
@@ -652,7 +652,7 @@ namespace Coflnet.Sky.Items.Services
                     Console.WriteLine("Could not update items " + e);
                 }
 
-
+/*
                 foreach (var dbItem in items)
                 {
                     //dbItem.Names = dbItem.Names.Where(n => n.Name != null).ToList();
@@ -681,7 +681,7 @@ namespace Coflnet.Sky.Items.Services
                         Console.WriteLine("Could not migrate" + JsonConvert.SerializeObject(dbItem, Formatting.Indented));
                         throw;
                     }
-                }
+                }*/
 
                 try
                 {
