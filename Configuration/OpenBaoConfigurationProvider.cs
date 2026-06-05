@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http.Headers;
@@ -69,7 +70,24 @@ internal sealed class OpenBaoConfigurationProvider : ConfigurationProvider, IDis
     {
         options.Validate();
         var jwt = await File.ReadAllTextAsync(options.TokenPath).ConfigureAwait(false);
-        using var client = new HttpClient { BaseAddress = new Uri(options.Address.TrimEnd('/') + "/") };
+
+        var handler = new HttpClientHandler();
+        if (!string.IsNullOrWhiteSpace(options.CACertPath) && File.Exists(options.CACertPath))
+        {
+            var caCert = new X509Certificate2(options.CACertPath);
+            handler.ServerCertificateCustomValidationCallback = (_, cert, chain, errors) =>
+            {
+                if (errors == System.Net.Security.SslPolicyErrors.None)
+                    return true;
+                if (cert is null || chain is null)
+                    return false;
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                chain.ChainPolicy.CustomTrustStore.Add(caCert);
+                chain.ChainPolicy.VerificationFlags = X509VerificationFlags.IgnoreWrongUsage;
+                return chain.Build(new X509Certificate2(cert));
+            };
+        }
+        using var client = new HttpClient(handler) { BaseAddress = new Uri(options.Address.TrimEnd('/') + "/") };
 
         var loginPayload = JsonSerializer.Serialize(new { role = options.Role, jwt });
         using var loginRequest = new HttpRequestMessage(HttpMethod.Post, $"v1/auth/{options.AuthPath.Trim('/')}/login")
@@ -114,6 +132,7 @@ internal sealed record OpenBaoOptions
     public string Path { get; init; } = "";
     public string Role { get; init; } = "";
     public string TokenPath { get; init; } = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+    public string CACertPath { get; init; } = "";
     public TimeSpan ReloadInterval { get; init; } = TimeSpan.FromMinutes(5);
 
     public static OpenBaoOptions FromEnvironment()
@@ -128,6 +147,7 @@ internal sealed record OpenBaoOptions
             Path = Env("OPENBAO__PATH"),
             Role = Env("OPENBAO__ROLE"),
             TokenPath = Env("OPENBAO__TOKEN_PATH", "/var/run/secrets/kubernetes.io/serviceaccount/token"),
+            CACertPath = Env("OPENBAO__CACERT"),
             ReloadInterval = TimeSpan.FromSeconds(Int("OPENBAO__RELOAD_SECONDS", 300))
         };
     }
