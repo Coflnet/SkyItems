@@ -40,7 +40,7 @@ internal sealed class OpenBaoConfigurationProvider : ConfigurationProvider, IDis
         this.options = options;
         if (options.ReloadInterval > TimeSpan.Zero)
         {
-            timer = new Timer(_ => Reload(), null, Timeout.InfiniteTimeSpan, options.ReloadInterval);
+            timer = new Timer(_ => ReloadSafe(), null, Timeout.InfiniteTimeSpan, options.ReloadInterval);
         }
     }
 
@@ -60,65 +60,138 @@ internal sealed class OpenBaoConfigurationProvider : ConfigurationProvider, IDis
             Data = LoadAsync().GetAwaiter().GetResult();
             OnReload();
         }
-        catch (Exception ex) when (options.Optional)
+        catch (Exception ex)
         {
-            Console.Error.WriteLine($"[OpenBao] optional configuration load failed: {ex.GetType().Name}: {ex.Message}");
+            LogError("load", ex);
+            if (!options.Optional)
+                throw;
         }
+    }
+
+    /// <summary>Timer-safe reload that never throws (avoids crashing the process on background reload failures).</summary>
+    private void ReloadSafe()
+    {
+        try
+        {
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            // Reload already logged the error; this catch prevents the exception from
+            // escaping the timer callback and crashing the process or stopping the timer.
+            LogError("background-reload", ex);
+        }
+    }
+
+    private static void LogError(string operation, Exception ex)
+    {
+        Console.Error.WriteLine($"[OpenBao] {operation} failed: {ex}");
     }
 
     private async Task<IDictionary<string, string?>> LoadAsync()
     {
-        options.Validate();
+        // ── validation ──────────────────────────────────────────────
+        try { options.Validate(); }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"OpenBao configuration validation failed. " +
+                $"Required: OPENBAO__ADDR, OPENBAO__ROLE, OPENBAO__PATH, and a valid OPENBAO__TOKEN_PATH. " +
+                $"Check your environment variables.", ex);
+        }
+
         var jwt = await File.ReadAllTextAsync(options.TokenPath).ConfigureAwait(false);
 
         var handler = new HttpClientHandler();
-        if (!string.IsNullOrWhiteSpace(options.CACertPath) && File.Exists(options.CACertPath))
+        if (!string.IsNullOrWhiteSpace(options.CACertPath))
         {
-            var caCert = new X509Certificate2(options.CACertPath);
-            handler.ServerCertificateCustomValidationCallback = (_, cert, chain, errors) =>
+            if (File.Exists(options.CACertPath))
             {
-                if (errors == System.Net.Security.SslPolicyErrors.None)
-                    return true;
-                if (cert is null || chain is null)
-                    return false;
-                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-                chain.ChainPolicy.CustomTrustStore.Add(caCert);
-                chain.ChainPolicy.VerificationFlags = X509VerificationFlags.IgnoreWrongUsage;
-                return chain.Build(new X509Certificate2(cert));
-            };
+                var caCert = new X509Certificate2(options.CACertPath);
+                handler.ServerCertificateCustomValidationCallback = (_, cert, chain, errors) =>
+                {
+                    if (errors == System.Net.Security.SslPolicyErrors.None)
+                        return true;
+                    if (cert is null || chain is null)
+                        return false;
+                    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                    chain.ChainPolicy.CustomTrustStore.Add(caCert);
+                    chain.ChainPolicy.VerificationFlags = X509VerificationFlags.IgnoreWrongUsage;
+                    return chain.Build(new X509Certificate2(cert));
+                };
+            }
+            else
+            {
+                Console.Error.WriteLine($"[OpenBao] WARNING: OPENBAO__CACERT is set but file not found: {options.CACertPath}");
+            }
         }
         using var client = new HttpClient(handler) { BaseAddress = new Uri(options.Address.TrimEnd('/') + "/") };
 
-        var loginPayload = JsonSerializer.Serialize(new { role = options.Role, jwt });
-        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, $"v1/auth/{options.AuthPath.Trim('/')}/login")
+        // ── login ───────────────────────────────────────────────────
+        HttpResponseMessage loginResponse;
+        try
         {
-            Content = new StringContent(loginPayload, Encoding.UTF8, "application/json")
-        };
-        using var loginResponse = await client.SendAsync(loginRequest).ConfigureAwait(false);
-        loginResponse.EnsureSuccessStatusCode();
-
-        using var loginDocument = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
-        var token = loginDocument.RootElement.GetProperty("auth").GetProperty("client_token").GetString();
-        if (string.IsNullOrWhiteSpace(token))
-            throw new InvalidOperationException("OpenBao login did not return a client token.");
-
-        using var secretRequest = new HttpRequestMessage(HttpMethod.Get, $"v1/{options.Mount.Trim('/')}/data/{options.Path.Trim('/')}");
-        secretRequest.Headers.Add("X-Vault-Token", token);
-        secretRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        using var secretResponse = await client.SendAsync(secretRequest).ConfigureAwait(false);
-        secretResponse.EnsureSuccessStatusCode();
-
-        using var secretDocument = JsonDocument.Parse(await secretResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
-        var data = secretDocument.RootElement.GetProperty("data").GetProperty("data");
-        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var property in data.EnumerateObject())
-        {
-            var key = property.Name.Replace("__", ":", StringComparison.Ordinal);
-            result[key] = property.Value.ValueKind == JsonValueKind.String
-                ? property.Value.GetString()
-                : property.Value.GetRawText();
+            var loginPayload = JsonSerializer.Serialize(new { role = options.Role, jwt });
+            using var loginRequest = new HttpRequestMessage(HttpMethod.Post, $"v1/auth/{options.AuthPath.Trim('/')}/login")
+            {
+                Content = new StringContent(loginPayload, Encoding.UTF8, "application/json")
+            };
+            loginResponse = await client.SendAsync(loginRequest).ConfigureAwait(false);
+            loginResponse.EnsureSuccessStatusCode();
         }
-        return result;
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"OpenBao login failed at {options.Address}/v1/auth/{options.AuthPath.Trim('/')}/login " +
+                $"(role={options.Role}). Verify the OpenBao address, auth path, role, and service-account token.", ex);
+        }
+
+        string token;
+        using (var loginDocument = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync().ConfigureAwait(false)))
+        {
+            token = loginDocument.RootElement.GetProperty("auth").GetProperty("client_token").GetString()!;
+            if (string.IsNullOrWhiteSpace(token))
+                throw new InvalidOperationException("OpenBao login response did not contain a client_token.");
+        }
+
+        // ── fetch secret ────────────────────────────────────────────
+        HttpResponseMessage secretResponse;
+        try
+        {
+            using var secretRequest = new HttpRequestMessage(HttpMethod.Get, $"v1/{options.Mount.Trim('/')}/data/{options.Path.Trim('/')}");
+            secretRequest.Headers.Add("X-Vault-Token", token);
+            secretRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            secretResponse = await client.SendAsync(secretRequest).ConfigureAwait(false);
+            secretResponse.EnsureSuccessStatusCode();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"OpenBao secret read failed at {options.Address}/v1/{options.Mount.Trim('/')}/data/{options.Path.Trim('/')}. " +
+                $"Verify the mount point and secret path.", ex);
+        }
+
+        // ── parse secret ────────────────────────────────────────────
+        try
+        {
+            using var secretDocument = JsonDocument.Parse(await secretResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
+            var data = secretDocument.RootElement.GetProperty("data").GetProperty("data");
+            var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in data.EnumerateObject())
+            {
+                var key = property.Name.Replace("__", ":", StringComparison.Ordinal);
+                result[key] = property.Value.ValueKind == JsonValueKind.String
+                    ? property.Value.GetString()
+                    : property.Value.GetRawText();
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"OpenBao secret response was malformed for path {options.Mount}/{options.Path}. " +
+                "Expected KV v2 response with .data.data.", ex);
+        }
     }
 }
 
