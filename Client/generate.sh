@@ -1,4 +1,4 @@
-VERSION=0.21.1
+VERSION=0.21.2
 PACKAGE_NAME=Coflnet.Sky.Items.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
@@ -25,7 +25,7 @@ sed -i 's/= 6/= 16/g' $FlagFile
 sed -i 's/= 8/= 64/g' $FlagFile
 sed -i 's/= 5/= 8/g' $FlagFile
 sed -i 's/= 7/= 32/g' $FlagFile
-
+sed -i 's/    public enum ItemFlags/    [Flags]\n    public enum ItemFlags/g' $FlagFile
 
 echo updated $FlagFile
 # correct enum values for categories
