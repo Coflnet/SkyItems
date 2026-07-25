@@ -119,6 +119,9 @@ namespace Coflnet.Sky.Items.Models.Hypixel
         [JsonProperty("material")]
         public string Material { get; set; }
 
+        [JsonProperty("item_model")]
+        public string ItemModel { get; set; }
+
         [JsonProperty("durability")]
         public int Durability { get; set; }
 

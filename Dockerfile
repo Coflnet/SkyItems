@@ -1,11 +1,11 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /build
 RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev && echo "cachebreaker3"
 WORKDIR /build/sky
 COPY SkyItems.csproj SkyItems.csproj
-RUN dotnet restore
+RUN dotnet restore -p:Configuration=Release
 COPY . .
-RUN dotnet publish -c release -o /app
+RUN dotnet publish -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

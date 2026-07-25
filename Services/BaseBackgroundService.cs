@@ -25,15 +25,18 @@ namespace Coflnet.Sky.Items.Services
         private IServiceScopeFactory scopeFactory;
         private IConfiguration config;
         private ILogger<BaseBackgroundService> logger;
+        private SkyItemIconSync iconSync;
         private Prometheus.Counter consumeCount = Prometheus.Metrics.CreateCounter("sky_items_consume", "How many messages were consumed");
         private Prometheus.Counter apiUpdateCount = Prometheus.Metrics.CreateCounter("sky_items_api_update", "Increased when updated items from hypixel api");
 
         public BaseBackgroundService(
-            IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<BaseBackgroundService> logger)
+            IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<BaseBackgroundService> logger,
+            SkyItemIconSync iconSync)
         {
             this.scopeFactory = scopeFactory;
             this.config = config;
             this.logger = logger;
+            this.iconSync = iconSync;
         }
         /// <summary>
         /// Called by asp.net on startup
@@ -61,7 +64,7 @@ namespace Coflnet.Sky.Items.Services
             {
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    await PullItemsFromHypixelApi();
+                    await PullItemsFromHypixelApi(stoppingToken);
                     await BuildItemModifierCache();
                     await Task.Delay(TimeSpan.FromHours(1));
                 }
@@ -124,12 +127,20 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        private async Task PullItemsFromHypixelApi()
+        private async Task PullItemsFromHypixelApi(CancellationToken cancellationToken)
         {
             try
             {
                 logger.LogInformation("starting update from api");
-                await DownloadFromApi();
+                var items = await DownloadFromApi();
+                try
+                {
+                    await iconSync.SyncAsync(items, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "syncing Hypixel resource-pack icons");
+                }
                 // bazaar is loaded every time as no bazaar events are consumed
                 await LoadBazaar();
                 logger.LogInformation("loaded bazaar data");
@@ -251,7 +262,7 @@ namespace Coflnet.Sky.Items.Services
             return apiItems;
         }
 
-        private async Task DownloadFromApi()
+        private async Task<IReadOnlyCollection<Models.Hypixel.Item>> DownloadFromApi()
         {
             var client = new RestClient("https://api.hypixel.net");
             var request = new RestRequest("/v2/resources/skyblock/items");
@@ -286,7 +297,7 @@ namespace Coflnet.Sky.Items.Services
                 }
             }
             logger.LogInformation("Loaded {count} fire sale items", fireSaleItems.Sales.Count);
-
+            return items.Items;
         }
 
         private async Task UpdateApiBatch(ItemDbContext context, IEnumerable<Models.Hypixel.Item> batch)

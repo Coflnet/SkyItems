@@ -53,6 +53,8 @@ namespace Coflnet.Sky.Items
             );
             services.AddHostedService<BaseBackgroundService>();
             services.AddJaeger(Configuration);
+            services.AddHttpClient();
+            services.AddSingleton<SkyItemIconSync>();
             services.AddTransient<ItemService>();
             services.AddSingleton<ItemMetaStorage>();
             services.AddResponseCompression();
