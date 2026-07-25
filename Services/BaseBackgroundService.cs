@@ -613,21 +613,7 @@ namespace Coflnet.Sky.Items.Services
                         context.Update(item);
                     if (item.Tag.StartsWith("SHARD_"))
                     {
-                        // shard names are not set correctly in some cases — compute canonical name from tag
-                        var baseName = ItemDetails.TagToName(item.Tag.Substring(6).Replace('_', ' ').ToLower());
-                        var newName = baseName + " Shard";
-
-                        // special-case mappings for a few historically incorrect or preferred names
-                        newName = item.Tag switch
-                        {
-                            // "Cinderbat" should be one word
-                            "SHARD_CINDER_BAT" => "Cinderbat Shard",
-                            // prefer "End Stone Protector Shard" (space between End and stone)
-                            "SHARD_ENDSTONE_PROTECTOR" => "End Stone Protector Shard",
-                            // historical naming: prefer "Loch Emperor Shard" over "Sea Emperor Shard"
-                            "SHARD_SEA_EMPEROR" => "Loch Emperor Shard",
-                            _ => newName
-                        };
+                        var newName = GetShardName(item.Tag);
 
                         // only update when the name actually differs to avoid unnecessary writes
                         if (item.Name != newName)
@@ -720,6 +706,14 @@ namespace Coflnet.Sky.Items.Services
                     Console.WriteLine("Could not rename shard " + e);
                 }
             }
+        }
+
+        internal static string GetShardName(string itemTag)
+        {
+            var tag = itemTag.Substring(6);
+            var mappedName = Constants.ShardNames.FirstOrDefault(s => s.Value == tag).Key;
+            var baseName = mappedName ?? ItemDetails.TagToName(tag.Replace('_', ' ').ToLower());
+            return baseName + " Shard";
         }
     }
 }
