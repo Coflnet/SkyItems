@@ -341,7 +341,9 @@ namespace Coflnet.Sky.Items.Controllers
 
         private static void MigrateUrl(Item res)
         {
-            if (res != null && !res.Tag.StartsWith("PET") && !res.Tag.StartsWith("POTION") && !res.Tag.StartsWith("RUNE"))
+            if (res != null
+                && res.IconUrl?.StartsWith("https://static.coflnet.com/sky/icons/", StringComparison.Ordinal) != true
+                && !res.Tag.StartsWith("PET") && !res.Tag.StartsWith("POTION") && !res.Tag.StartsWith("RUNE"))
                 res.IconUrl = "https://sky.coflnet.com/static/icon/" + res.Tag;
         }
 
