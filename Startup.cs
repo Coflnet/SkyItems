@@ -81,6 +81,11 @@ namespace Coflnet.Sky.Items
 
             app.UseRouting();
 
+            // Emits http_requests_received_total{code,method,controller,action}.
+            // The k8s canary analysis rolls a new version back on an elevated 5xx
+            // ratio, so this has to sit after UseRouting to get the route labels.
+            app.UseHttpMetrics();
+
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
