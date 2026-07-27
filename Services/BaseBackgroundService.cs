@@ -187,31 +187,19 @@ namespace Coflnet.Sky.Items.Services
         {
             if (!item.Tag.StartsWith("ENCHANTMENT_"))
                 return;
-            // Check if alias already exists
-            if (item.Modifiers?.Any(m => m.Slug == "alias") == true)
+
+            var aliasName = GetEnchantmentName(item.Tag, true)?.ToLower();
+            if (aliasName == null || item.Modifiers?.Any(m => m.Slug == "alias" && m.Value == aliasName) == true)
                 return;
-            
-            var numberMatch = Regex.Match(item.Tag, @"_(\d+)$");
-            if (!numberMatch.Success)
-                return;
-            
-            var level = int.Parse(numberMatch.Groups[1].Value);
-            var romanLevel = Roman.To(level);
-            // Remove the number suffix and "ENCHANTMENT_" prefix, also remove "ULTIMATE_" if present
-            var nameBase = item.Tag.Substring(12);
-            if (nameBase.StartsWith("ULTIMATE_"))
-                nameBase = nameBase.Substring(9);
-            nameBase = Regex.Replace(nameBase, @"_\d+$", "");
-            var aliasName = ItemDetails.TagToName(nameBase.Replace('_', ' ').ToLower()) + " " + romanLevel;
-            
+
             item.Modifiers ??= new HashSet<Modifiers>();
             item.Modifiers.Add(new Modifiers()
             {
                 Slug = "alias",
                 Type = Modifiers.DataType.STRING,
-                Value = aliasName.ToLower()
+                Value = aliasName
             });
-            logger.LogInformation($"Added Roman alias '{aliasName.ToLower()}' for {item.Tag}");
+            logger.LogInformation("Added Roman alias '{AliasName}' for {Tag}", aliasName, item.Tag);
         }
 
         private async Task RemoveFlagForNonBazaarItems(HashSet<string> tags, ItemDbContext context)
@@ -242,7 +230,9 @@ namespace Coflnet.Sky.Items.Services
                 };
                 if (tag.StartsWith("ENCHANTMENT_"))
                 {
-                    newItem.Name = tag.Substring(12).ToLower().Replace('_', ' ') + " enchant";
+                    var enchantmentName = GetEnchantmentName(tag);
+                    if (enchantmentName != null)
+                        newItem.Name = enchantmentName.ToLower() + " enchant";
                     newItem.MinecraftType = "ENCHANTED_BOOK";
                 }
                 AddEnchantmentRomanAlias(newItem);
@@ -623,6 +613,19 @@ namespace Coflnet.Sky.Items.Services
                             Console.WriteLine($"fixed shard name for {item.Tag} {item.Name}");
                         }
                     }
+                    if (item.Tag.StartsWith("ENCHANTMENT_"))
+                    {
+                        var enchantmentName = GetEnchantmentName(item.Tag);
+                        if (enchantmentName != null)
+                        {
+                            var newName = enchantmentName.ToLower() + " enchant";
+                            if (item.Name != newName)
+                            {
+                                item.Name = newName;
+                                context.Update(item);
+                            }
+                        }
+                    }
                     if (item.Tag.StartsWith("PET_SKIN") && !(item.Name?.Contains("Skin") ?? false))
                     {
                         var name = await context.Modifiers.Where(i => i.Slug == "name" && i.Value != null && i.Value.Contains("Skin") && i.ItemId == item.Id)
@@ -714,6 +717,16 @@ namespace Coflnet.Sky.Items.Services
             var mappedName = Constants.ShardNames.FirstOrDefault(s => s.Value == tag).Key;
             var baseName = mappedName ?? ItemDetails.TagToName(tag.Replace('_', ' ').ToLower());
             return baseName + " Shard";
+        }
+
+        internal static string GetEnchantmentName(string itemTag, bool romanLevel = false)
+        {
+            var match = Regex.Match(itemTag, @"^ENCHANTMENT_(.+)_(\d+)$");
+            if (!match.Success)
+                return null;
+            var level = int.Parse(match.Groups[2].Value);
+            return NBT.GetEnchantmentDisplayName(match.Groups[1].Value) + " "
+                + (romanLevel ? Roman.To(level) : level);
         }
     }
 }
