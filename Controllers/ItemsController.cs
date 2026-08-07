@@ -20,6 +20,7 @@ namespace Coflnet.Sky.Items.Controllers
     [Route("[controller]")]
     public class ItemsController : ControllerBase
     {
+        private const int MaxSearchCount = 100;
         private readonly ItemService service;
         private readonly ItemDbContext context;
         private readonly ILogger<ItemsController> logger;
@@ -134,11 +135,10 @@ namespace Coflnet.Sky.Items.Controllers
         {
             var select = GetSelectForQueryTerm(term);
             var prospects = await select
-                    .Take(count * 3)
+                    .Take(Math.Min(count, MaxSearchCount) * 3)
                     .Select(i => new
                     {
-                        Name = i.Name,
-                        CommonName = i.Modifiers.Where(m => (m.Slug == "name" || m.Slug == "alias")&& m.Value != null)
+                        Name = i.Name ?? i.Modifiers.Where(m => (m.Slug == "name" || m.Slug == "alias") && m.Value != null)
                         .OrderByDescending(m => m.FoundCount)
                         .Select(m => m.Value).FirstOrDefault(),
                         i.Tag,
@@ -152,7 +152,7 @@ namespace Coflnet.Sky.Items.Controllers
                 {
                     Tag = item.Tag,
                     // manual name takes priority over most common
-                    Text = ImproveName(item.Name != null ? item.Name : item.CommonName, item.Tag),
+                    Text = ImproveName(item.Name, item.Tag),
                     Flags = item.Flags,
                     Tier = item.Tier
                 };
@@ -347,7 +347,7 @@ namespace Coflnet.Sky.Items.Controllers
                 res.IconUrl = "https://sky.coflnet.com/static/icon/" + res.Tag;
         }
 
-        private IOrderedQueryable<Item> GetSelectForQueryTerm(string term)
+        internal IOrderedQueryable<Item> GetSelectForQueryTerm(string term)
         {
             var clearedSearch = Regex.Replace(term ?? "", @"[^\u0000-\u007F]+", "").Trim();
             short.TryParse(term, out short numericId);
@@ -357,13 +357,13 @@ namespace Coflnet.Sky.Items.Controllers
             if (tagified == term && Regex.IsMatch(term, @"[a-zA-Z]"))
                 return context.Items.Where(i => i.Tag == tagified).OrderBy(i => i.Id);
             var namingModifiers = new HashSet<string>() { "name", "alias", "abr" };
+            var matchingModifierItemIds = context.Modifiers
+                    .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
+                        || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')))
+                    .Select(m => m.ItemId);
             var select = context.Items
                     .Where(item =>
-                        context.Modifiers
-                        .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
-                            || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')) && m.Item == item
-                        // || EF.Functions.Like(name.Value, '%' + term + '%')
-                        ).Any()
+                        matchingModifierItemIds.Contains(item.Id)
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
