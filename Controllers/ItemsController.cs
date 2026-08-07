@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Coflnet.Sky.Items.Services;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Coflnet.Sky.Items.Controllers
 {
@@ -129,7 +130,7 @@ namespace Coflnet.Sky.Items.Controllers
         [HttpGet]
         [Route("search/{term}")]
         [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<SearchResult>> Search(string term, int count = 20)
+        public async Task<IEnumerable<SearchResult>> Search(string term, int count = 20, CancellationToken cancellationToken = default)
         {
             var select = GetSelectForQueryTerm(term);
             var prospects = await select
@@ -144,8 +145,7 @@ namespace Coflnet.Sky.Items.Controllers
                         i.Flags,
                         i.Tier
                     })
-                    .AsSplitQuery()
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
             return prospects.Select(item =>
             {
                 return new SearchResult()
@@ -183,12 +183,12 @@ namespace Coflnet.Sky.Items.Controllers
         [HttpGet]
         [Route("search/{term}/id")]
         [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<int> GetId(string term)
+        public async Task<int> GetId(string term, CancellationToken cancellationToken = default)
         {
             IOrderedQueryable<Item> select = GetSelectForQueryTerm(term);
             return await select
                     .Take(2)
-                    .Select(i => i.Id).FirstOrDefaultAsync();
+                    .Select(i => i.Id).FirstOrDefaultAsync(cancellationToken);
         }
 
         /// <summary>
@@ -358,7 +358,6 @@ namespace Coflnet.Sky.Items.Controllers
                 return context.Items.Where(i => i.Tag == tagified).OrderBy(i => i.Id);
             var namingModifiers = new HashSet<string>() { "name", "alias", "abr" };
             var select = context.Items
-                    .Include(item => item.Modifiers)
                     .Where(item =>
                         context.Modifiers
                         .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
@@ -368,9 +367,8 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Tag, "%" + tagified + '%')
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
-                    ).AsSplitQuery()
+                    )
                     .OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
-            var sql = select.ToQueryString();
             return select;
         }
     }

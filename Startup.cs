@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi;
 using Prometheus;
 using System.Text.Json.Serialization;
+using MySqlConnector;
 
 namespace Coflnet.Sky.Items
 {
@@ -43,11 +44,15 @@ namespace Coflnet.Sky.Items
             // Alternatively, use 'ServerVersion.AutoDetect(connectionString)'.
             // For common usages, see pull request #1233.
             var serverVersion = new MariaDbServerVersion(new Version(Configuration["MARIADB_VERSION"]));
+            var connectionStringBuilder = new MySqlConnectionStringBuilder(Configuration["DB_CONNECTION"]);
+            connectionStringBuilder.Pooling = true;
+            connectionStringBuilder.MaximumPoolSize = Math.Min(connectionStringBuilder.MaximumPoolSize,
+                Configuration.GetValue("DB_MAX_POOL_SIZE", 64u));
 
             // Replace 'YourDbContext' with the name of your own DbContext derived class.
             services.AddDbContext<ItemDbContext>(
                 dbContextOptions => dbContextOptions
-                    .UseMySql(Configuration["DB_CONNECTION"], serverVersion)
+                    .UseMySql(connectionStringBuilder.ConnectionString, serverVersion)
                     .EnableSensitiveDataLogging() // <-- These two calls are optional but help
                     .EnableDetailedErrors()       // <-- with debugging (remove for production).
             );
