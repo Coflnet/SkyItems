@@ -118,6 +118,99 @@ public class ItemsControllerTests
         }
     }
 
+    // Regression coverage: FACTION_RABBIT_MOCKTAIL had no real name in the DB - its Name column was
+    // literally the tag - so SkyApi sending along the item's NBT display name should be able to
+    // replace it, while a genuinely curated name must never be overwritten.
+    [Test]
+    public void SanitizeItemNameStripsColorCodes()
+    {
+        Assert.That(ItemsController.SanitizeItemName("§aFaction Rabbit Mocktail"), Is.EqualTo("Faction Rabbit Mocktail"));
+    }
+
+    [TestCase("§6§lSELL §9Agility Shard", "Agility Shard")]
+    [TestCase("§6§lBUY §9Enchanted Redstone", "Enchanted Redstone")]
+    [TestCase("64x Enchanted Redstone", "Enchanted Redstone")]
+    [TestCase("§a64x §fEnchanted Redstone", "Enchanted Redstone")]
+    [TestCase("BUY 1,280x Enchanted Redstone", "Enchanted Redstone")]
+    [TestCase("   ", null)]
+    [TestCase(null, null)]
+    [TestCase("§a§lBUY ", null)]
+    public void SanitizeItemNameStripsPrefixes(string raw, string expected)
+    {
+        Assert.That(ItemsController.SanitizeItemName(raw), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ShouldReplaceNameRegressionForFactionRabbitMocktail()
+    {
+        var sanitized = ItemsController.SanitizeItemName("§aFaction Rabbit Mocktail");
+
+        Assert.That(ItemsController.ShouldReplaceName("FACTION_RABBIT_MOCKTAIL", "FACTION_RABBIT_MOCKTAIL", sanitized), Is.True);
+    }
+
+    [Test]
+    public void ShouldReplaceNameNeverOverwritesARealName()
+    {
+        var sanitized = ItemsController.SanitizeItemName("§aFaction Rabbit Mocktail");
+
+        Assert.That(ItemsController.ShouldReplaceName("Rabbit's Special Mocktail", "FACTION_RABBIT_MOCKTAIL", sanitized), Is.False);
+    }
+
+    [Test]
+    public void ShouldReplaceNameSetsNameWhenCurrentIsNull()
+    {
+        var sanitized = ItemsController.SanitizeItemName("§aFaction Rabbit Mocktail");
+
+        Assert.That(ItemsController.ShouldReplaceName(null, "FACTION_RABBIT_MOCKTAIL", sanitized), Is.True);
+    }
+
+    [Test]
+    public void ShouldReplaceNameIgnoresSanitizedNameThatIsJustTheTag()
+    {
+        Assert.That(ItemsController.ShouldReplaceName(null, "FACTION_RABBIT_MOCKTAIL", "Faction_Rabbit_Mocktail"), Is.False);
+        Assert.That(ItemsController.ShouldReplaceName(null, "FACTION_RABBIT_MOCKTAIL", ""), Is.False);
+    }
+
+    [Test]
+    public Task SetTextureForItemStoresSanitizedNameAndDoesNotOverwriteIcon() =>
+        WithSeededContext(context =>
+        {
+            context.Items.Add(new Item { Tag = "FACTION_RABBIT_MOCKTAIL", Name = "FACTION_RABBIT_MOCKTAIL", IconUrl = "https://existing.example/icon.png" });
+        }, async (context, controller) =>
+        {
+            await controller.SetTextureForItem("FACTION_RABBIT_MOCKTAIL", "http://textures.minecraft.net/texture/abc", "§aFaction Rabbit Mocktail");
+
+            var item = context.Items.Single(i => i.Tag == "FACTION_RABBIT_MOCKTAIL");
+            Assert.Multiple(() =>
+            {
+                Assert.That(item.Name, Is.EqualTo("Faction Rabbit Mocktail"));
+                Assert.That(item.IconUrl, Is.EqualTo("https://existing.example/icon.png"), "must not overwrite an existing icon");
+            });
+        });
+
+    [Test]
+    public Task SetTextureForItemDoesNotThrowForUnknownTag() =>
+        // Previously NRE'd on item.IconUrl for a tag that isn't in the DB.
+        WithSeededContext(_ => { }, (_, controller) =>
+            controller.SetTextureForItem("DOES_NOT_EXIST", "sometexture", "§aSome Name"));
+
+    [Test]
+    public Task SetTextureForItemAllowsNameOnlyUpdateWithNullTexture() =>
+        WithSeededContext(context =>
+        {
+            context.Items.Add(new Item { Tag = "FACTION_RABBIT_CHASM", Name = "FACTION_RABBIT_CHASM", IconUrl = null });
+        }, async (context, controller) =>
+        {
+            await controller.SetTextureForItem("FACTION_RABBIT_CHASM", null, "§aFaction Rabbit Chasm");
+
+            var item = context.Items.Single(i => i.Tag == "FACTION_RABBIT_CHASM");
+            Assert.Multiple(() =>
+            {
+                Assert.That(item.Name, Is.EqualTo("Faction Rabbit Chasm"));
+                Assert.That(item.IconUrl, Is.Null);
+            });
+        });
+
     private static async Task WithSeededContext(Action<ItemDbContext> seed, Func<ItemDbContext, ItemsController, Task> body)
     {
         // A shared, kept-open connection is required for SQLite's ":memory:" database to survive

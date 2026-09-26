@@ -238,7 +238,7 @@ namespace Coflnet.Sky.Items.Controllers
         }
 
         /// <summary>
-        /// Returns all items that don't have an icon
+        /// Returns all items that don't have an icon (or are missing a real display name)
         /// </summary>
         /// <returns></returns>
         [HttpGet]
@@ -246,29 +246,105 @@ namespace Coflnet.Sky.Items.Controllers
         [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<Item>> ItemsWithoutIcon()
         {
-            return await context.Items.Where(i => i.IconUrl == null && (i.MinecraftType == null || i.MinecraftType == "SKULL_ITEM")).ToListAsync();
+            return await context.Items.Where(i =>
+                    (i.IconUrl == null && (i.MinecraftType == null || i.MinecraftType == "SKULL_ITEM"))
+                    || i.Name == null || i.Name == "" || i.Name == i.Tag)
+                .ToListAsync();
         }
 
         /// <summary>
-        /// Updates the icon url for an item
+        /// Updates the icon url and/or display name for an item
         /// </summary>
         /// <param name="itemTag"></param>
         /// <param name="texture"></param>
+        /// <param name="name">Raw (possibly Minecraft-formatted) display name to store when the item doesn't have a real one yet</param>
         /// <returns></returns>
         [HttpPost]
         [Route("/item/{itemTag}/texture")]
-        public async Task SetTextureForItem(string itemTag, string texture)
+        public async Task SetTextureForItem(string itemTag, string texture, string name = null)
         {
             var item = await context.Items.Where(i => i.Tag == itemTag).FirstOrDefaultAsync();
-            if (item.IconUrl != null)
-                return; // don't overwrite existing urls
-            if (texture.Contains("http://textures.minecraft.net/texture/"))
-                item.IconUrl = "https://mc-heads.net/head/" + texture.Replace("http://textures.minecraft.net/texture/", "");
-            else
-                item.IconUrl = texture;
+            if (item == null)
+            {
+                logger.LogInformation("Tried to set texture/name for unknown item {tag}", itemTag);
+                return;
+            }
+            var changed = false;
+            if (item.IconUrl == null && !string.IsNullOrEmpty(texture))
+            {
+                if (texture.Contains("http://textures.minecraft.net/texture/"))
+                    item.IconUrl = "https://mc-heads.net/head/" + texture.Replace("http://textures.minecraft.net/texture/", "");
+                else
+                    item.IconUrl = texture;
+                logger.LogInformation("Updated icon for " + itemTag + " to " + item.IconUrl);
+                changed = true;
+            }
+            var sanitizedName = SanitizeItemName(name);
+            if (ShouldReplaceName(item.Name, itemTag, sanitizedName))
+            {
+                item.Name = sanitizedName;
+                logger.LogInformation("Updated name for " + itemTag + " to " + item.Name);
+                changed = true;
+            }
+            if (!changed)
+                return;
             context.Update(item);
-            logger.LogInformation("Updated icon for " + itemTag + " to " + item.IconUrl);
             await context.SaveChangesAsync();
+        }
+
+        private static readonly Regex ColorCodePattern = new(@"§[0-9a-fklmnor]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex LeadingBuySellPattern = new(@"^(?:BUY|SELL)(?:\s+|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex LeadingAmountPattern = new(@"^[\d,]+x\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Strips Minecraft color codes, bazaar order prefixes ("BUY "/"SELL ") and leading stack
+        /// amount prefixes ("64x ") from a raw item display name (as seen e.g. on bazaar order
+        /// screens sent by the mod). Returns null if nothing usable remains.
+        /// </summary>
+        internal static string SanitizeItemName(string rawName)
+        {
+            if (string.IsNullOrWhiteSpace(rawName))
+                return null;
+            var name = ColorCodePattern.Replace(rawName, "").Trim();
+            string previous;
+            do
+            {
+                previous = name;
+                name = LeadingBuySellPattern.Replace(name, "");
+                name = LeadingAmountPattern.Replace(name, "");
+                name = name.Trim();
+            } while (name != previous);
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        /// <summary>
+        /// Whether the currently stored <paramref name="name"/> is just a placeholder for the tag
+        /// (empty, exactly equal, or the same words with underscores/spaces swapped and different
+        /// casing) rather than a real, curated display name. Used only to decide whether it is safe
+        /// to overwrite - a real name (however it happens to be capitalized) is never touched.
+        /// </summary>
+        internal static bool LooksLikeTag(string name, string tag)
+        {
+            if (string.IsNullOrEmpty(name))
+                return true;
+            if (string.IsNullOrEmpty(tag))
+                return false;
+            return string.Equals(name.Trim().Replace(' ', '_'), tag.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Decides whether a newly seen (already sanitized) name should be stored: never overwrites a
+        /// real, already-set name, and never stores a "name" that is itself just the raw tag. Note this
+        /// intentionally uses a stricter (non underscore/space-swapping) comparison than
+        /// <see cref="LooksLikeTag"/> for the new name - otherwise a good name like "Faction Rabbit
+        /// Mocktail" would always be rejected, since it normalizes the same way "FACTION_RABBIT_MOCKTAIL"
+        /// (the current placeholder) does under that looser comparison.
+        /// </summary>
+        internal static bool ShouldReplaceName(string currentName, string tag, string sanitizedNewName)
+        {
+            if (string.IsNullOrEmpty(sanitizedNewName) || string.Equals(sanitizedNewName, tag, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return LooksLikeTag(currentName, tag);
         }
 
         [HttpGet]
