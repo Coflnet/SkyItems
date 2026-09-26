@@ -361,6 +361,11 @@ namespace Coflnet.Sky.Items.Controllers
                     .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
                         || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')))
                     .Select(m => m.ItemId);
+            // Roman-numeral enchant tiers ("Karma I".."Karma IV") all match the prefix/tag LIKEs above
+            // ('_' is a LIKE wildcard, so "%KARMA_I%" hits every tier), so boost the exact
+            // ENCHANTMENT_<NAME>_<level> tag. Hot path: keep this a plain parameter comparison
+            // ("" never matches a tag) instead of another subquery or an inlined constant.
+            var enchantTag = GetEnchantTagCandidate(clearedSearch) ?? "";
             var select = context.Items
                     .Where(item =>
                         matchingModifierItemIds.Contains(item.Id)
@@ -368,8 +373,47 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
                     )
-                    .OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0) - (item.Name == clearedSearch || item.Tag == tagified ? 10000000 : 0));
+                    .OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0)
+                        - (item.Name == clearedSearch || item.Tag == tagified || item.Tag == enchantTag ? 10000000 : 0))
+                    .ThenBy(item => item.Id);
             return select;
+        }
+
+        private static readonly Regex TrailingRomanNumeral = new(@"^(.+?)\s+([IVXLC]+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Builds the ENCHANTMENT_&lt;NAME&gt;_&lt;level&gt; tag candidate for search terms ending in a
+        /// roman numeral level, e.g. "Karma I" -&gt; ENCHANTMENT_KARMA_1, "Ultimate Wise V" -&gt;
+        /// ENCHANTMENT_ULTIMATE_WISE_5, "Turbo-Wheat I" -&gt; ENCHANTMENT_TURBO_WHEAT_1.
+        /// Returns null when the trailing token isn't a valid roman numeral (verified by round-tripping
+        /// it through <see cref="Core.Roman"/>), so a term that merely ends in letters that happen to
+        /// also form a valid roman numeral pattern never misfires into a bogus candidate - the caller
+        /// only uses the candidate when it actually matches an item's tag, so an unexpected candidate
+        /// here is harmless.
+        /// </summary>
+        internal static string GetEnchantTagCandidate(string term)
+        {
+            if (string.IsNullOrEmpty(term))
+                return null;
+            var match = TrailingRomanNumeral.Match(term.ToUpperInvariant());
+            if (!match.Success)
+                return null;
+            var romanPart = match.Groups[2].Value;
+            int level;
+            try
+            {
+                level = Core.Roman.From(romanPart);
+            }
+            catch (KeyNotFoundException)
+            {
+                return null;
+            }
+            if (level <= 0 || Core.Roman.To(level) != romanPart)
+                return null;
+            var namePart = string.Join("_", match.Groups[1].Value.Split(new[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries));
+            if (namePart.Length == 0)
+                return null;
+            return $"ENCHANTMENT_{namePart}_{level}";
         }
     }
 }
