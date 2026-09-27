@@ -58,6 +58,7 @@ namespace Coflnet.Sky.Items.Services
                 }
                 logger.LogInformation("fixing");
                 await FixItems(context);
+                await RewriteLegacySkycryptIconUrls(context, config["SKYCRYPT_BASE_URL"], logger);
             }
 
             _ = Task.Run(async () =>
@@ -347,7 +348,7 @@ namespace Coflnet.Sky.Items.Services
                 match.NpcSellPrice = item.NpcSellPrice ?? -1;
                 match.MinecraftType = item.Material;
                 match.Durability = (short)item.Durability;
-                if ((match.IconUrl == null || match.IconUrl.StartsWith("https://skycrypt.coflnet")) && item.Material.StartsWith("LEATHER"))
+                if ((match.IconUrl == null || IsLegacySkycryptUrl(match.IconUrl)) && item.Material.StartsWith("LEATHER"))
                 {
                     AssignIconBasedOnColor(item, match);
                 }
@@ -445,9 +446,87 @@ namespace Coflnet.Sky.Items.Services
                 match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/api/item/" + item.Material;
             else
             {
-                var color = (NBT.GetColor(item.Color.Replace(",", ":")) >> 8) & 0xFFFFFF;
-                match.IconUrl = config["SKYCRYPT_BASE_URL"] + "/api/leather/" + item.Material.Split('_').Last().ToLower() + "/" + color.ToString("X").PadLeft(6, '0');
-                Console.WriteLine($"item {item.Id} has color {color.ToString("X").PadLeft(6, '0')} from {item.Color}");
+                var path = GetLeatherPath(item);
+                match.IconUrl = config["SKYCRYPT_BASE_URL"] + path;
+                Console.WriteLine($"item {item.Id} has leather icon path {path} from {item.Color}");
+            }
+        }
+
+        /// <summary>
+        /// Builds the skycrypt `/api/leather/{type}/{hexcolor}` path for a colored leather item.
+        /// </summary>
+        /// <param name="item">a hypixel api item with a non-null <see cref="Models.Hypixel.Item.Color"/></param>
+        internal static string GetLeatherPath(Models.Hypixel.Item item)
+        {
+            var color = (NBT.GetColor(item.Color.Replace(",", ":")) >> 8) & 0xFFFFFF;
+            return "/api/leather/" + item.Material.Split('_').Last().ToLower() + "/" + color.ToString("X").PadLeft(6, '0');
+        }
+
+        /// <summary>
+        /// Old (now dead) skycrypt hosts whose IconUrls need to be rewritten to the configured
+        /// static mirror (see <see cref="RewriteLegacySkycryptUrl"/>).
+        /// </summary>
+        internal static readonly string[] LegacySkycryptPrefixes = new[]
+        {
+            "https://sky.shiiyu.moe/",
+            "https://sky.shiiyu.moe",
+            "https://skycrypt.coflnet.com",
+        };
+
+        /// <summary>
+        /// Whether the given icon url points at one of the old (now dead) skycrypt hosts and should
+        /// be rewritten to the configured static mirror via <see cref="RewriteLegacySkycryptUrl"/>.
+        /// </summary>
+        public static bool IsLegacySkycryptUrl(string iconUrl)
+        {
+            if (string.IsNullOrEmpty(iconUrl))
+                return false;
+            return LegacySkycryptPrefixes.Any(prefix => iconUrl.StartsWith(prefix));
+        }
+
+        /// <summary>
+        /// Rewrites an old sky.shiiyu.moe / skycrypt.coflnet.com icon url onto the configured
+        /// skycrypt mirror base, keeping the path unchanged. Returns the url unchanged if it isn't
+        /// one of the legacy hosts (see <see cref="IsLegacySkycryptUrl"/>). Idempotent: rewriting an
+        /// already-rewritten (mirror) url is a no-op since it no longer matches a legacy prefix.
+        /// </summary>
+        public static string RewriteLegacySkycryptUrl(string iconUrl, string skycryptBase)
+        {
+            if (!IsLegacySkycryptUrl(iconUrl))
+                return iconUrl;
+            var prefix = LegacySkycryptPrefixes.First(p => iconUrl.StartsWith(p));
+            var path = iconUrl.Substring(prefix.Length);
+            if (!path.StartsWith("/"))
+                path = "/" + path;
+            return skycryptBase.TrimEnd('/') + path;
+        }
+
+        /// <summary>
+        /// One-off, idempotent startup fixup: rewrites any IconUrl still pointing at a dead skycrypt
+        /// host (sky.shiiyu.moe removed its image endpoints; skycrypt.coflnet.com was never actually
+        /// deployed) onto the configured static mirror. The frontend (hypixel-react) reads item.iconUrl
+        /// directly, so DB values need fixing up, not just the resolution code.
+        /// Static and taking the context/base-url/logger explicitly so it can be exercised directly
+        /// against an in-memory db in tests, without wiring up the full hosted service.
+        /// </summary>
+        internal static async Task RewriteLegacySkycryptIconUrls(ItemDbContext context, string skycryptBase, ILogger logger = null)
+        {
+            if (string.IsNullOrEmpty(skycryptBase))
+                return;
+            var candidates = await context.Items
+                .Where(i => i.IconUrl != null && (i.IconUrl.StartsWith("https://sky.shiiyu.moe") || i.IconUrl.StartsWith("https://skycrypt.coflnet.com")))
+                .ToListAsync();
+            if (candidates.Count == 0)
+                return;
+            logger?.LogInformation("Rewriting {Count} legacy skycrypt icon urls to {SkycryptBase}", candidates.Count, skycryptBase);
+            foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(candidates, 200))
+            {
+                foreach (var item in batch)
+                {
+                    item.IconUrl = RewriteLegacySkycryptUrl(item.IconUrl, skycryptBase);
+                    context.Update(item);
+                }
+                await context.SaveChangesAsync();
             }
         }
 

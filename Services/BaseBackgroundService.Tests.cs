@@ -1,4 +1,9 @@
+using System.Linq;
+using System.Threading.Tasks;
 using Coflnet.Sky.Core;
+using Coflnet.Sky.Items.Models;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using NUnit.Framework;
 
 namespace Coflnet.Sky.Items.Services;
@@ -41,5 +46,94 @@ public class BaseBackgroundServiceTests
     public void CoreMapsCurrentEnchantmentNameToStableKey(string currentName, string stableKey)
     {
         Assert.That(NBT.RenameEnchant(currentName), Is.EqualTo(stableKey));
+    }
+
+    [TestCase("https://sky.shiiyu.moe/api/item/HYPERION", true)]
+    [TestCase("https://sky.shiiyu.moe", true)]
+    [TestCase("https://skycrypt.coflnet.com/api/head/abc123", true)]
+    [TestCase("https://static.coflnet.com/sky/skycrypt/api/item/HYPERION", false)]
+    [TestCase(null, false)]
+    public void IsLegacySkycryptUrlDetectsDeadHosts(string iconUrl, bool expected)
+    {
+        Assert.That(BaseBackgroundService.IsLegacySkycryptUrl(iconUrl), Is.EqualTo(expected));
+    }
+
+    [TestCase("https://sky.shiiyu.moe/api/item/HYPERION", "https://static.coflnet.com/sky/skycrypt/api/item/HYPERION")]
+    [TestCase("https://skycrypt.coflnet.com/api/head/abc123", "https://static.coflnet.com/sky/skycrypt/api/head/abc123")]
+    // regression: item.iconUrl is read directly by hypixel-react, so existing DB values pointing at
+    // the now-dead skycrypt hosts must be rewritten onto the configured mirror, keeping the path.
+    public void RewriteLegacySkycryptUrlKeepsPath(string iconUrl, string expected)
+    {
+        Assert.That(BaseBackgroundService.RewriteLegacySkycryptUrl(iconUrl, "https://static.coflnet.com/sky/skycrypt"), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void RewriteLegacySkycryptUrlIsIdempotent()
+    {
+        var once = BaseBackgroundService.RewriteLegacySkycryptUrl("https://sky.shiiyu.moe/api/item/HYPERION", "https://static.coflnet.com/sky/skycrypt");
+        var twice = BaseBackgroundService.RewriteLegacySkycryptUrl(once, "https://static.coflnet.com/sky/skycrypt");
+
+        Assert.That(twice, Is.EqualTo(once));
+    }
+
+    [Test]
+    public void RewriteLegacySkycryptUrlLeavesOtherUrlsUnchanged()
+    {
+        var url = "https://sky.coflnet.com/static/icon/HYPERION";
+
+        Assert.That(BaseBackgroundService.RewriteLegacySkycryptUrl(url, "https://static.coflnet.com/sky/skycrypt"), Is.EqualTo(url));
+    }
+
+    // regression: item.iconUrl is what hypixel-react actually reads, so the startup fixup has to
+    // touch the db rows themselves, not just the resolution code. Exercised against a real (SQLite
+    // in-memory) DbContext, batched, and run twice to confirm the second pass is a no-op.
+    [Test]
+    public async Task RewriteLegacySkycryptIconUrls_RewritesDbRows_AndIsIdempotent()
+    {
+        const string mirror = "https://static.coflnet.com/sky/skycrypt";
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<ItemDbContext>().UseSqlite(connection).Options;
+        using var context = new SqliteCompatibleItemDbContext(options);
+        context.Database.EnsureCreated();
+        context.Items.AddRange(
+            new Models.Item { Tag = "HYPERION", IconUrl = "https://sky.shiiyu.moe/api/item/HYPERION" },
+            new Models.Item { Tag = "OLD_HOST", IconUrl = "https://skycrypt.coflnet.com/api/head/abc123" },
+            new Models.Item { Tag = "ALREADY_MIRROR", IconUrl = mirror + "/api/item/ALREADY_MIRROR" },
+            new Models.Item { Tag = "NO_ICON", IconUrl = null });
+        context.SaveChanges();
+
+        await BaseBackgroundService.RewriteLegacySkycryptIconUrls(context, mirror);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.Items.Single(i => i.Tag == "HYPERION").IconUrl, Is.EqualTo(mirror + "/api/item/HYPERION"));
+            Assert.That(context.Items.Single(i => i.Tag == "OLD_HOST").IconUrl, Is.EqualTo(mirror + "/api/head/abc123"));
+            Assert.That(context.Items.Single(i => i.Tag == "ALREADY_MIRROR").IconUrl, Is.EqualTo(mirror + "/api/item/ALREADY_MIRROR"));
+            Assert.That(context.Items.Single(i => i.Tag == "NO_ICON").IconUrl, Is.Null);
+        });
+
+        // second (idempotent) pass should find nothing left to rewrite
+        await BaseBackgroundService.RewriteLegacySkycryptIconUrls(context, mirror);
+
+        Assert.That(context.Items.Single(i => i.Tag == "HYPERION").IconUrl, Is.EqualTo(mirror + "/api/item/HYPERION"));
+    }
+
+    /// <summary>
+    /// Item.Id is annotated [Column(TypeName = "MEDIUMINT(9)")] for MySQL; SQLite only allows
+    /// AUTOINCREMENT on a column declared exactly as INTEGER, so override the store type for this
+    /// test-only context (same workaround as ItemsController.Tests.cs's CaseInsensitiveItemDbContext).
+    /// </summary>
+    private class SqliteCompatibleItemDbContext : ItemDbContext
+    {
+        public SqliteCompatibleItemDbContext(DbContextOptions<ItemDbContext> options) : base(options)
+        {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Models.Item>().Property(i => i.Id).HasColumnType("INTEGER");
+        }
     }
 }
