@@ -84,9 +84,68 @@ public class BaseBackgroundServiceTests
         Assert.That(BaseBackgroundService.RewriteLegacySkycryptUrl(url, "https://static.coflnet.com/sky/skycrypt"), Is.EqualTo(url));
     }
 
+    // regression: every url under https://static.coflnet.com/skyblock/item/ 404s now (verified live
+    // for a range of items, e.g. 4-0.png/1-0.png/351-0.png/351-4.png), so IconCanaryFailing{source="vanilla"}
+    // fired for COBBLESTONE, whose stored IconUrl was one of these dead urls.
+    [TestCase("https://static.coflnet.com/skyblock/item/4-0.png", true)]
+    [TestCase("https://static.coflnet.com/skyblock/item/351-4.png", true)]
+    [TestCase("https://static.coflnet.com/sky/skycrypt/api/item/COBBLESTONE", false)]
+    [TestCase("https://sky.coflnet.com/static/icon/COBBLESTONE", false)]
+    [TestCase(null, false)]
+    public void IsDeadStaticSkyblockItemUrlDetectsDeadHost(string iconUrl, bool expected)
+    {
+        Assert.That(BaseBackgroundService.IsDeadStaticSkyblockItemUrl(iconUrl), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void BuildOwnIconUrlUsesTag()
+    {
+        Assert.That(BaseBackgroundService.BuildOwnIconUrl("COBBLESTONE"), Is.EqualTo("https://sky.coflnet.com/static/icon/COBBLESTONE"));
+    }
+
+    [TestCase("https://sky.shiiyu.moe/api/item/HYPERION", "HYPERION", "https://static.coflnet.com/sky/skycrypt/api/item/HYPERION")]
+    [TestCase("https://static.coflnet.com/skyblock/item/351-4.png", "DYE_RED", "https://sky.coflnet.com/static/icon/DYE_RED")]
+    [TestCase("https://sky.coflnet.com/static/icon/COBBLESTONE", "COBBLESTONE", "https://sky.coflnet.com/static/icon/COBBLESTONE")]
+    public void RewriteDeadIconUrlPicksCorrectTarget(string iconUrl, string tag, string expected)
+    {
+        Assert.That(BaseBackgroundService.RewriteDeadIconUrl(iconUrl, tag, "https://static.coflnet.com/sky/skycrypt"), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void RewriteDeadIconUrlIsIdempotent()
+    {
+        const string mirror = "https://static.coflnet.com/sky/skycrypt";
+        var once = BaseBackgroundService.RewriteDeadIconUrl("https://static.coflnet.com/skyblock/item/351-4.png", "DYE_RED", mirror);
+        var twice = BaseBackgroundService.RewriteDeadIconUrl(once, "DYE_RED", mirror);
+
+        Assert.That(twice, Is.EqualTo(once));
+    }
+
+    // regression: BaseBackgroundService.UpdateApiBatch's INK_SACK/dye branch used to hardcode
+    // $"https://static.coflnet.com/skyblock/item/351-{durability}.png" (see git history), which 404s
+    // for every durability now that static.coflnet.com/skyblock/item/ is entirely dead. The branch now
+    // guards with IsDeadStaticSkyblockItemUrl and assigns BuildOwnIconUrl(tag) instead - confirm that
+    // replacement is never itself flagged as needing a further rewrite, for every dye durability.
+    [TestCase((short)0)]
+    [TestCase((short)4)]
+    [TestCase((short)15)]
+    public void DyeIconAssignment_NoLongerProducesDeadStaticUrl(short durability)
+    {
+        var oldDeadUrl = $"https://static.coflnet.com/skyblock/item/351-{durability}.png";
+        Assert.That(BaseBackgroundService.IsDeadStaticSkyblockItemUrl(oldDeadUrl), Is.True,
+            "sanity check: the pre-fix value must still be recognized as dead so old DB rows get rewritten");
+
+        var replacement = BaseBackgroundService.BuildOwnIconUrl("DYE_RED");
+
+        Assert.That(replacement, Is.EqualTo("https://sky.coflnet.com/static/icon/DYE_RED"));
+        Assert.That(BaseBackgroundService.IsDeadStaticSkyblockItemUrl(replacement), Is.False);
+    }
+
     // regression: item.iconUrl is what hypixel-react actually reads, so the startup fixup has to
     // touch the db rows themselves, not just the resolution code. Exercised against a real (SQLite
-    // in-memory) DbContext, batched, and run twice to confirm the second pass is a no-op.
+    // in-memory) DbContext, batched, and run twice to confirm the second pass is a no-op. Covers both
+    // the legacy skycrypt hosts and the dead static.coflnet.com/skyblock/item/ host (formerly written
+    // for dyes, but any item could have picked one up historically).
     [Test]
     public async Task RewriteLegacySkycryptIconUrls_RewritesDbRows_AndIsIdempotent()
     {
@@ -100,6 +159,8 @@ public class BaseBackgroundServiceTests
             new Models.Item { Tag = "HYPERION", IconUrl = "https://sky.shiiyu.moe/api/item/HYPERION" },
             new Models.Item { Tag = "OLD_HOST", IconUrl = "https://skycrypt.coflnet.com/api/head/abc123" },
             new Models.Item { Tag = "ALREADY_MIRROR", IconUrl = mirror + "/api/item/ALREADY_MIRROR" },
+            new Models.Item { Tag = "COBBLESTONE", IconUrl = "https://static.coflnet.com/skyblock/item/4-0.png" },
+            new Models.Item { Tag = "DYE_RED", IconUrl = "https://static.coflnet.com/skyblock/item/351-4.png" },
             new Models.Item { Tag = "NO_ICON", IconUrl = null });
         context.SaveChanges();
 
@@ -110,6 +171,8 @@ public class BaseBackgroundServiceTests
             Assert.That(context.Items.Single(i => i.Tag == "HYPERION").IconUrl, Is.EqualTo(mirror + "/api/item/HYPERION"));
             Assert.That(context.Items.Single(i => i.Tag == "OLD_HOST").IconUrl, Is.EqualTo(mirror + "/api/head/abc123"));
             Assert.That(context.Items.Single(i => i.Tag == "ALREADY_MIRROR").IconUrl, Is.EqualTo(mirror + "/api/item/ALREADY_MIRROR"));
+            Assert.That(context.Items.Single(i => i.Tag == "COBBLESTONE").IconUrl, Is.EqualTo("https://sky.coflnet.com/static/icon/COBBLESTONE"));
+            Assert.That(context.Items.Single(i => i.Tag == "DYE_RED").IconUrl, Is.EqualTo("https://sky.coflnet.com/static/icon/DYE_RED"));
             Assert.That(context.Items.Single(i => i.Tag == "NO_ICON").IconUrl, Is.Null);
         });
 
@@ -117,6 +180,7 @@ public class BaseBackgroundServiceTests
         await BaseBackgroundService.RewriteLegacySkycryptIconUrls(context, mirror);
 
         Assert.That(context.Items.Single(i => i.Tag == "HYPERION").IconUrl, Is.EqualTo(mirror + "/api/item/HYPERION"));
+        Assert.That(context.Items.Single(i => i.Tag == "COBBLESTONE").IconUrl, Is.EqualTo("https://sky.coflnet.com/static/icon/COBBLESTONE"));
     }
 
     /// <summary>

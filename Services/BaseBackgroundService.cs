@@ -401,10 +401,12 @@ namespace Coflnet.Sky.Items.Services
                 }
                 if(item.Durability != 0 && item.Material == "INK_SACK")
                 {
-                    // color item make sure durability is set in url
-                    if(match.IconUrl == null || match.IconUrl == "https://static.coflnet.com/skyblock/item/351-0.png")
+                    // color item make sure an icon is set; static.coflnet.com/skyblock/item/ urls are
+                    // all dead now (see IsDeadStaticSkyblockItemUrl), use our own icon url instead -
+                    // PreviewService.GetIconUrl resolves the durability-specific dye color from the tag
+                    if(match.IconUrl == null || IsDeadStaticSkyblockItemUrl(match.IconUrl))
                     {
-                        match.IconUrl = $"https://static.coflnet.com/skyblock/item/351-{item.Durability}.png";
+                        match.IconUrl = BuildOwnIconUrl(match.Tag);
                         logger.LogInformation($"Item {item.Id} had no icon, using {match.IconUrl}");
                     }
                 }
@@ -502,10 +504,53 @@ namespace Coflnet.Sky.Items.Services
         }
 
         /// <summary>
+        /// Prefix of the old (now entirely dead - every url under it 404s) per-item icon host that used
+        /// to be written for e.g. dyes (see the INK_SACK branch in <see cref="UpdateApiBatch"/>). Unlike
+        /// <see cref="LegacySkycryptPrefixes"/> the path (a numeric material-durability id) carries no
+        /// useful information, so these are rewritten to the tag-based own-icon url instead of onto the
+        /// skycrypt mirror.
+        /// </summary>
+        internal const string DeadStaticSkyblockItemPrefix = "https://static.coflnet.com/skyblock/item/";
+
+        /// <summary>
+        /// Whether the given icon url points at the dead static.coflnet.com/skyblock/item/ host (see
+        /// <see cref="DeadStaticSkyblockItemPrefix"/>) and should be rewritten via <see cref="BuildOwnIconUrl"/>.
+        /// </summary>
+        public static bool IsDeadStaticSkyblockItemUrl(string iconUrl)
+        {
+            if (string.IsNullOrEmpty(iconUrl))
+                return false;
+            return iconUrl.StartsWith(DeadStaticSkyblockItemPrefix, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Builds our own icon url for a tag (resolved by SkyCommands' PreviewService/IconResolver,
+        /// which looks the tag up against the Hypixel material/skull/dye-durability data). Matches
+        /// ItemsController.MigrateUrl's fallback for items without a real icon.
+        /// </summary>
+        public static string BuildOwnIconUrl(string tag) => "https://sky.coflnet.com/static/icon/" + tag;
+
+        /// <summary>
+        /// Rewrites a single dead icon url: legacy skycrypt hosts move onto the configured mirror
+        /// keeping their path (<see cref="RewriteLegacySkycryptUrl"/>), the dead static per-item host
+        /// moves onto the tag-based own-icon url (<see cref="BuildOwnIconUrl"/>) since its path (a
+        /// numeric material-durability id) can't be mapped onto the mirror. Returns the url unchanged
+        /// if it needs no rewrite, so this is idempotent too.
+        /// </summary>
+        internal static string RewriteDeadIconUrl(string iconUrl, string tag, string skycryptBase)
+        {
+            if (IsDeadStaticSkyblockItemUrl(iconUrl))
+                return BuildOwnIconUrl(tag);
+            return RewriteLegacySkycryptUrl(iconUrl, skycryptBase);
+        }
+
+        /// <summary>
         /// One-off, idempotent startup fixup: rewrites any IconUrl still pointing at a dead skycrypt
         /// host (sky.shiiyu.moe removed its image endpoints; skycrypt.coflnet.com was never actually
-        /// deployed) onto the configured static mirror. The frontend (hypixel-react) reads item.iconUrl
-        /// directly, so DB values need fixing up, not just the resolution code.
+        /// deployed) onto the configured static mirror, and any IconUrl still pointing at the dead
+        /// static.coflnet.com/skyblock/item/ host (formerly written for dyes) onto the tag-based
+        /// own-icon url. The frontend (hypixel-react) reads item.iconUrl directly, so DB values need
+        /// fixing up, not just the resolution code.
         /// Static and taking the context/base-url/logger explicitly so it can be exercised directly
         /// against an in-memory db in tests, without wiring up the full hosted service.
         /// </summary>
@@ -514,16 +559,16 @@ namespace Coflnet.Sky.Items.Services
             if (string.IsNullOrEmpty(skycryptBase))
                 return;
             var candidates = await context.Items
-                .Where(i => i.IconUrl != null && (i.IconUrl.StartsWith("https://sky.shiiyu.moe") || i.IconUrl.StartsWith("https://skycrypt.coflnet.com")))
+                .Where(i => i.IconUrl != null && (i.IconUrl.StartsWith("https://sky.shiiyu.moe") || i.IconUrl.StartsWith("https://skycrypt.coflnet.com") || i.IconUrl.StartsWith(DeadStaticSkyblockItemPrefix)))
                 .ToListAsync();
             if (candidates.Count == 0)
                 return;
-            logger?.LogInformation("Rewriting {Count} legacy skycrypt icon urls to {SkycryptBase}", candidates.Count, skycryptBase);
+            logger?.LogInformation("Rewriting {Count} dead icon urls to {SkycryptBase}", candidates.Count, skycryptBase);
             foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(candidates, 200))
             {
                 foreach (var item in batch)
                 {
-                    item.IconUrl = RewriteLegacySkycryptUrl(item.IconUrl, skycryptBase);
+                    item.IconUrl = RewriteDeadIconUrl(item.IconUrl, item.Tag, skycryptBase);
                     context.Update(item);
                 }
                 await context.SaveChangesAsync();
