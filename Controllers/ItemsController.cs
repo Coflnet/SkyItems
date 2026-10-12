@@ -159,13 +159,19 @@ namespace Coflnet.Sky.Items.Controllers
             });
         }
 
-        private string ImproveName(string fullName, string tag)
+        /// <summary>
+        /// Reduces an in game display name to the item name: drops upgrade stars, pet levels and a
+        /// leading reforge ("Withered Hyperion ✪✪✪✪✪" becomes "Hyperion"). The reforge stays when it is
+        /// part of the tag, e.g. "Wise Dragon Helmet" for WISE_DRAGON_HELMET.
+        /// </summary>
+        internal static string ImproveName(string fullName, string tag)
         {
             if (fullName == null)
                 return null;
             if (tag == "GOD_POTION")
                 return "God Potion (Legacy)";
-            var noSpecialChars = fullName.Trim('✪').Replace("✦", "");
+            // master stars follow the normal ones ("✪✪✪✪✪➋"), the fragged marker is added back below for STARRED_ tags
+            var noSpecialChars = fullName.Trim('✪', '➊', '➋', '➌', '➍', '➎').Replace("✦", "").Replace("⚚", "").Trim();
             if (fullName.Contains("Rune"))
                 noSpecialChars = noSpecialChars.TrimEnd('I').TrimEnd();
             var words = tag.Replace("STARRED_", "").Split('_');
@@ -279,7 +285,7 @@ namespace Coflnet.Sky.Items.Controllers
                 logger.LogInformation("Updated icon for " + itemTag + " to " + item.IconUrl);
                 changed = true;
             }
-            var sanitizedName = SanitizeItemName(name);
+            var sanitizedName = ImproveName(SanitizeItemName(name), itemTag);
             if (ShouldReplaceName(item.Name, itemTag, sanitizedName))
             {
                 item.Name = sanitizedName;
@@ -318,33 +324,39 @@ namespace Coflnet.Sky.Items.Controllers
         }
 
         /// <summary>
-        /// Whether the currently stored <paramref name="name"/> is just a placeholder for the tag
-        /// (empty, exactly equal, or the same words with underscores/spaces swapped and different
-        /// casing) rather than a real, curated display name. Used only to decide whether it is safe
-        /// to overwrite - a real name (however it happens to be capitalized) is never touched.
+        /// Whether the currently stored <paramref name="name"/> is only a placeholder: missing, or the
+        /// tag itself (upper case, spaces allowed in place of underscores). Every other name is a real one,
+        /// usually from the hypixel api, and is never overwritten - also not "Hyperion", which equals its
+        /// tag once case is ignored (true for about 3200 items) and used to be replaced by reforged
+        /// display names like "Withered Hyperion ✪✪✪✪✪".
         /// </summary>
         internal static bool LooksLikeTag(string name, string tag)
         {
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrWhiteSpace(name))
                 return true;
             if (string.IsNullOrEmpty(tag))
                 return false;
-            return string.Equals(name.Trim().Replace(' ', '_'), tag.Trim(), StringComparison.OrdinalIgnoreCase);
+            return string.Equals(name.Trim().Replace(' ', '_'), tag.Trim(), StringComparison.Ordinal);
         }
 
         /// <summary>
-        /// Decides whether a newly seen (already sanitized) name should be stored: never overwrites a
-        /// real, already-set name, and never stores a "name" that is itself just the raw tag. Note this
-        /// intentionally uses a stricter (non underscore/space-swapping) comparison than
-        /// <see cref="LooksLikeTag"/> for the new name - otherwise a good name like "Faction Rabbit
-        /// Mocktail" would always be rejected, since it normalizes the same way "FACTION_RABBIT_MOCKTAIL"
-        /// (the current placeholder) does under that looser comparison.
+        /// Decides whether a newly seen (already cleaned) name should be stored: only in place of a
+        /// placeholder (see <see cref="LooksLikeTag"/>), and never a "name" that is itself just the raw
+        /// tag ("FACTION_RABBIT_MOCKTAIL", "Faction_Rabbit_Mocktail"). A capitalised name without
+        /// underscores is accepted even if it equals the tag once case is ignored ("Hyperion").
         /// </summary>
         internal static bool ShouldReplaceName(string currentName, string tag, string sanitizedNewName)
         {
-            if (string.IsNullOrEmpty(sanitizedNewName) || string.Equals(sanitizedNewName, tag, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(sanitizedNewName) || IsRawTag(sanitizedNewName, tag))
                 return false;
             return LooksLikeTag(currentName, tag);
+        }
+
+        private static bool IsRawTag(string newName, string tag)
+        {
+            if (!string.Equals(newName, tag, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return newName.Contains('_') || !newName.Any(char.IsLower) || !newName.Any(char.IsUpper);
         }
 
         [HttpGet]

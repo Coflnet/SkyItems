@@ -194,6 +194,59 @@ public class ItemsControllerTests
         Assert.That(ItemsController.ShouldReplaceName("Rabbit's Special Mocktail", "FACTION_RABBIT_MOCKTAIL", sanitized), Is.False);
     }
 
+    /// <summary>
+    /// Regression: "Hyperion" equals its tag when case is ignored and was treated as a placeholder, so display
+    /// names sent by the mod ("Withered Hyperion ✪✪✪✪✪") replaced the real name of popular items
+    /// </summary>
+    [TestCase("Hyperion", "HYPERION", "Withered Hyperion ✪✪✪✪✪")]
+    [TestCase("Terminator", "TERMINATOR", "Spiritual Terminator ✪✪✪✪✪")]
+    [TestCase("Aspect of the End", "ASPECT_OF_THE_END", "Heroic Aspect of the End")]
+    [TestCase("Leather", "LEATHER", "Leather & Beef")]
+    [TestCase("hyperion", "HYPERION", "Withered Hyperion ✪✪✪✪✪")]
+    public void ShouldReplaceNameKeepsEveryNameThatIsNotTheTagItself(string current, string tag, string displayName)
+    {
+        var raw = ItemsController.SanitizeItemName(displayName);
+
+        Assert.That(ItemsController.ShouldReplaceName(current, tag, raw), Is.False);
+        Assert.That(ItemsController.ShouldReplaceName(current, tag, ItemsController.ImproveName(raw, tag)), Is.False);
+    }
+
+    [TestCase("HYPERION", "HYPERION", "§6Withered Hyperion §6✪§6✪§6✪§6✪§6✪", "Hyperion")]
+    [TestCase("ASPECT OF THE END", "ASPECT_OF_THE_END", "Heroic Aspect of the End ✪", "Aspect of the End")]
+    [TestCase("NEW_BLADE", "NEW_BLADE", "§6Heroic New Blade ✪✪", "New Blade")]
+    [TestCase("WISE_DRAGON_HELMET", "WISE_DRAGON_HELMET", "Wise Dragon Helmet ✪", "Wise Dragon Helmet")]
+    public void TagAsNameIsReplacedByTheCleanedDisplayName(string current, string tag, string displayName, string expected)
+    {
+        var cleaned = ItemsController.ImproveName(ItemsController.SanitizeItemName(displayName), tag);
+
+        Assert.That(cleaned, Is.EqualTo(expected));
+        Assert.That(ItemsController.ShouldReplaceName(current, tag, cleaned), Is.True);
+    }
+
+    [TestCase("HYPERION")]
+    [TestCase("Faction_Rabbit_Mocktail")]
+    public void ShouldReplaceNameNeverStoresTheRawTag(string newName)
+    {
+        var tag = newName.ToUpper();
+
+        Assert.That(ItemsController.ShouldReplaceName(tag, tag, newName), Is.False);
+    }
+
+    [TestCase("Withered Hyperion ✪✪✪✪✪", "HYPERION", "Hyperion")]
+    [TestCase("Suspicious Scylla ✪✪✪✪✪➋", "SCYLLA", "Scylla")]
+    [TestCase("Fair Cleaver", "CLEAVER", "Cleaver")]
+    [TestCase("Wise Dragon Helmet ✪", "WISE_DRAGON_HELMET", "Wise Dragon Helmet")]
+    [TestCase("Strong Dragon Chestplate", "STRONG_DRAGON_CHESTPLATE", "Strong Dragon Chestplate")]
+    [TestCase("[Lvl 100] Bee", "PET_BEE", "Bee")]
+    [TestCase("⚚ Heroic Shadow Fury ✪✪", "STARRED_SHADOW_FURY", "⚚ Shadow Fury")]
+    [TestCase("⚚ Shadow Fury", "STARRED_SHADOW_FURY", "⚚ Shadow Fury")]
+    [TestCase("Faction Rabbit Mocktail", "FACTION_RABBIT_MOCKTAIL", "Faction Rabbit Mocktail")]
+    [TestCase("✪✪", "SOMETHING", "")]
+    public void ImproveNameReducesADisplayNameToTheItemName(string displayName, string tag, string expected)
+    {
+        Assert.That(ItemsController.ImproveName(displayName, tag), Is.EqualTo(expected));
+    }
+
     [Test]
     public void ShouldReplaceNameSetsNameWhenCurrentIsNull()
     {
