@@ -437,6 +437,13 @@ namespace Coflnet.Sky.Items.Controllers
                     .Where(m => namingModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
                         || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')))
                     .Select(m => m.ItemId);
+            // Only dedicated alias/abr modifiers count as a strong (rank 2) match; "name" modifiers hold every
+            // observed auction display name including reforged ones ("Hyper Cow Head") and must not outrank real names.
+            var aliasModifiers = new HashSet<string>() { "alias", "abr" };
+            var aliasModifierItemIds = context.Modifiers
+                    .Where(m => aliasModifiers.Contains(m.Slug) && (EF.Functions.Like(m.Value, clearedSearch + '%')
+                        || EF.Functions.Like(m.Value, "Enchanted " + clearedSearch + '%')))
+                    .Select(m => m.ItemId);
             // Roman-numeral enchant tiers ("Karma I".."Karma IV") all match the prefix/tag LIKEs above
             // ('_' is a LIKE wildcard, so "%KARMA_I%" hits every tier), so boost the exact
             // ENCHANTMENT_<NAME>_<level> tag. Hot path: keep this a plain parameter comparison
@@ -449,8 +456,11 @@ namespace Coflnet.Sky.Items.Controllers
                         || EF.Functions.Like(item.Name, clearedSearch + '%')
                         || item.Id == numericId
                     )
-                    .OrderBy(item => (item.Name.Length / 2) - (item.Name.StartsWith(clearedSearch) ? 1 : 0)
-                        - (item.Name == clearedSearch || item.Tag == tagified || item.Tag == enchantTag ? 10000000 : 0))
+                    // rank: 0 exact, 1 canonical name prefix, 2 alias/abr prefix, 3 rest (reforged name modifiers, tag substring)
+                    .OrderBy(item => item.Name == clearedSearch || item.Tag == tagified || item.Tag == enchantTag ? 0
+                        : EF.Functions.Like(item.Name, clearedSearch + '%') ? 1
+                        : aliasModifierItemIds.Contains(item.Id) ? 2 : 3)
+                    .ThenBy(item => item.Name == null ? int.MaxValue : item.Name.Length)
                     .ThenBy(item => item.Id);
             return select;
         }

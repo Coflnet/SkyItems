@@ -89,6 +89,44 @@ public class ItemsControllerTests
             Assert.That(results.First().Tag, Is.EqualTo("ENCHANTMENT_ULTIMATE_WISE_1"));
         });
 
+    [Test]
+    public Task SearchRanksCanonicalNamePrefixAboveReforgedNameModifiers() =>
+        WithSeededContext(context =>
+        {
+            // armor first so Id order alone cannot make the test pass
+            context.Items.Add(new Item
+            {
+                Tag = "COW_HEAD",
+                Name = "Cow Hat",
+                Modifiers = new HashSet<Modifiers>
+                {
+                    new Modifiers { Slug = "name", Value = "Hyper Cow Head" },
+                    new Modifiers { Slug = "abr", Value = "CH" }
+                }
+            });
+            context.Items.Add(new Item
+            {
+                Tag = "PIG_MASK",
+                Name = "Pig Mask",
+                Modifiers = new HashSet<Modifiers> { new Modifiers { Slug = "name", Value = "Hyper Pig Mask" } }
+            });
+            context.Items.Add(new Item { Tag = "HYPER_CLEAVER", Name = "Hyper Cleaver" });
+            context.Items.Add(new Item { Tag = "HYPER_CATALYST", Name = "Hyper Catalyst" });
+            context.Items.Add(new Item { Tag = "HYPERION", Name = "Hyperion" });
+        }, async (_, controller) =>
+        {
+            var tags = (await controller.Search("hyper")).Select(r => r.Tag).ToList();
+            Assert.That(tags.Take(3), Is.EqualTo(new[] { "HYPERION", "HYPER_CLEAVER", "HYPER_CATALYST" }));
+            Assert.That(tags.IndexOf("COW_HEAD"), Is.GreaterThan(2));
+            Assert.That(tags.IndexOf("PIG_MASK"), Is.GreaterThan(2));
+
+            var hype = (await controller.Search("hype")).Select(r => r.Tag).ToList();
+            Assert.That(hype.First(), Is.EqualTo("HYPERION"));
+
+            var cow = (await controller.Search("cow hat")).Select(r => r.Tag).ToList();
+            Assert.That(cow.First(), Is.EqualTo("COW_HEAD"));
+        });
+
     private static void SeedKarmaEnchantTiers(ItemDbContext context)
     {
         // Inserted highest-tier-first (matching the order the live bug returned results in), so
