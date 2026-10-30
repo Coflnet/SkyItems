@@ -5,6 +5,11 @@ WORKDIR /build/sky
 COPY SkyItems.csproj SkyItems.csproj
 RUN dotnet restore -p:Configuration=Release
 COPY . .
+# The existing native image tests need the same library as the runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
+RUN dotnet test --nologo
 RUN dotnet publish -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

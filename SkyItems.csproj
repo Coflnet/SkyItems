@@ -19,6 +19,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Coflnet.Core" Version="0.7.5" />
     <PackageReference Include="MoreLINQ" Version="4.4.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.14" />
     <PackageReference Include="SkiaSharp" Version="3.119.4" />

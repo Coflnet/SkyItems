@@ -14,6 +14,9 @@ using Microsoft.OpenApi;
 using Prometheus;
 using System.Text.Json.Serialization;
 using MySqlConnector;
+using Coflnet.Core.Security;
+using Coflnet.Sky.Items.Infrastructure;
+using Microsoft.AspNetCore.Http;
 
 namespace Coflnet.Sky.Items
 {
@@ -44,18 +47,31 @@ namespace Coflnet.Sky.Items
             // Alternatively, use 'ServerVersion.AutoDetect(connectionString)'.
             // For common usages, see pull request #1233.
             var serverVersion = new MariaDbServerVersion(new Version(Configuration["MARIADB_VERSION"]));
-            var connectionStringBuilder = new MySqlConnectionStringBuilder(Configuration["DB_CONNECTION"]);
+            var connectionStringBuilder = new MySqlConnectionStringBuilder(DatabaseTls.ConnectionString(Configuration));
             connectionStringBuilder.Pooling = true;
             connectionStringBuilder.MaximumPoolSize = Math.Min(connectionStringBuilder.MaximumPoolSize,
                 Configuration.GetValue("DB_MAX_POOL_SIZE", 64u));
 
-            // Replace 'YourDbContext' with the name of your own DbContext derived class.
-            services.AddDbContext<ItemDbContext>(
-                dbContextOptions => dbContextOptions
-                    .UseMySql(connectionStringBuilder.ConnectionString, serverVersion)
-                    .EnableSensitiveDataLogging() // <-- These two calls are optional but help
-                    .EnableDetailedErrors()       // <-- with debugging (remove for production).
-            );
+            if (Configuration.GetSection("DB:TLS").Exists())
+            {
+                services.AddSingleton(_ => PemTlsOptions.FromConfiguration(Configuration.GetSection("DB:TLS")));
+                services.AddSingleton<DatabaseTlsInterceptor>();
+            }
+            services.AddDbContext<ItemDbContext>((provider, options) =>
+            {
+                options.UseMySql(connectionStringBuilder.ConnectionString, serverVersion).EnableDetailedErrors();
+                if (Configuration.GetSection("DB:TLS").Exists())
+                    options.AddInterceptors(provider.GetRequiredService<DatabaseTlsInterceptor>());
+            });
+            // Resolved only by the existing empty-database copy branch, never at normal startup.
+            services.AddDbContext<HypixelContext>((provider, options) =>
+            {
+                options.UseMySql(DatabaseTls.ConnectionString(Configuration, "DBCONNECTION"),
+                    new MariaDbServerVersion(Configuration["DBVersion"] ?? "10.3"),
+                    b => b.CommandTimeout(60).MaxBatchSize(100));
+                if (Configuration.GetSection("DB:TLS").Exists())
+                    options.AddInterceptors(provider.GetRequiredService<DatabaseTlsInterceptor>());
+            });
             services.AddHostedService<BaseBackgroundService>();
             services.AddJaeger(Configuration);
             services.AddHttpClient();
@@ -97,6 +113,20 @@ namespace Coflnet.Sky.Items
             {
                 endpoints.MapMetrics();
                 endpoints.MapControllers();
+                endpoints.MapGet("/health/ready", async context =>
+                {
+                    try
+                    {
+                        await DatabaseReadiness.CheckAsync(context.RequestServices.GetRequiredService<ItemDbContext>(),
+                            context.RequestAborted);
+                        await context.Response.WriteAsync("ready");
+                    }
+                    catch (Exception)
+                    {
+                        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                        await context.Response.WriteAsync("not ready");
+                    }
+                });
             });
         }
     }

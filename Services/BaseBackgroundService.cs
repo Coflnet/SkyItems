@@ -46,7 +46,7 @@ namespace Coflnet.Sky.Items.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // make sure all migrations are applied
-            await Migrate();
+            await Migrate(stoppingToken);
             using var scope = scopeFactory.CreateScope();
             using (var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>())
             {
@@ -54,7 +54,7 @@ namespace Coflnet.Sky.Items.Services
                 {
                     await Task.Delay(1000);
                     logger.LogInformation("migrating old db");
-                    await CopyOverItems(context);
+                    await CopyOverItems(context, scope.ServiceProvider.GetRequiredService<HypixelContext>());
                 }
                 logger.LogInformation("fixing");
                 await FixItems(context);
@@ -152,11 +152,12 @@ namespace Coflnet.Sky.Items.Services
             }
         }
 
-        private async Task Migrate()
+        private async Task Migrate(CancellationToken stoppingToken)
         {
             using var scope = scopeFactory.CreateScope();
             using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
             // make sure all migrations are applied
+            await Infrastructure.DatabaseReadiness.CheckAsync(context, stoppingToken);
             await context.Database.MigrateAsync();
         }
 
@@ -630,9 +631,9 @@ namespace Coflnet.Sky.Items.Services
             return id;
         }
 
-        private static async Task CopyOverItems(ItemDbContext context)
+        private static async Task CopyOverItems(ItemDbContext context, HypixelContext db)
         {
-            using (var db = new HypixelContext())
+            using (db)
             {
                 var items = await db.Items.Include(i => i.Names).ToListAsync();
                 foreach (var dbItem in items)
