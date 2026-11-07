@@ -71,11 +71,28 @@ namespace Coflnet.Sky.Items.Services
                 }
             });
 
-            var flipCons = Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config, config["TOPICS:NEW_AUCTION"], async batch =>
+            var backoff = new ConsumeBackoff();
+            var flipCons = ConsumeRetryLoop.RunAsync(
+                () => ConsumeNewAuctions(backoff, stoppingToken),
+                backoff,
+                (e, wait) => logger.LogError(e, "auction consumption failed, retrying in {delay}", wait),
+                Task.Delay,
+                stoppingToken);
+
+            await UpdateAliases();
+
+            await flipCons;
+            logger.LogInformation("consuming ended");
+        }
+
+        private Task ConsumeNewAuctions(ConsumeBackoff backoff, CancellationToken stoppingToken)
+        {
+            return Kafka.KafkaConsumer.ConsumeBatch<SaveAuction>(config, config["TOPICS:NEW_AUCTION"], async batch =>
             {
                 if (batch.All(a => a.Start < DateTime.UtcNow - TimeSpan.FromHours(1)))
                 {
                     Console.WriteLine("skipping old auctions");
+                    backoff.Reset();
                     return;
                 }
                 try
@@ -90,6 +107,7 @@ namespace Coflnet.Sky.Items.Services
                     Console.WriteLine($"Info: updated {sum} entries");
                     consumeCount.Inc(batch.Count());
                     await service.TrimModifiers();
+                    backoff.Reset();
                 }
                 catch (Exception e)
                 {
@@ -99,12 +117,6 @@ namespace Coflnet.Sky.Items.Services
                 GC.Collect();
 
             }, stoppingToken, "sky-items", 32);
-
-            await UpdateAliases();
-
-            await flipCons;
-            logger.LogInformation("consuming ended");
-            throw new Exception("consuming ended");
         }
 
         private async Task UpdateAliases()
