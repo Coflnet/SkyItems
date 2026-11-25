@@ -51,14 +51,39 @@ public class ResourcePackIconExtractorTests
         Assert.That(Pixel(png), Is.EqualTo(SKColors.Blue));
     }
 
-    [Test]
-    public void UsesFrameZeroForAnimatedTextures()
+    [TestCase("""{"animation":{}}""", 0)]
+    [TestCase("""{"animation":{"frames":[1,0]}}""", 1)]
+    [TestCase("""{"animation":{"frames":[{"index":1,"time":2},0]}}""", 1)]
+    public void RendersTheFirstDeclaredAnimationFrame(string animation, int frameIndex)
     {
-        using var fixture = PackFixture.Create("""{"type":"model","model":"test:item/animated"}""", animated: true);
+        using var fixture = PackFixture.Create("""{"type":"model","model":"test:item/animated"}""", animation);
         var png = fixture.Extractor.Extract("test:item/icon");
         using var bitmap = SKBitmap.Decode(png);
-        Assert.That(bitmap.Height, Is.EqualTo(1));
-        Assert.That(bitmap.GetPixel(0, 0), Is.EqualTo(SKColors.Red));
+        Assert.Multiple(() =>
+        {
+            Assert.That(bitmap.Width, Is.EqualTo(2));
+            Assert.That(bitmap.Height, Is.EqualTo(2));
+            Assert.That(bitmap.GetPixel(0, 0).Alpha, Is.EqualTo(frameIndex == 0 ? byte.MaxValue : 0));
+            Assert.That(bitmap.GetPixel(1, 0), Is.EqualTo(frameIndex == 0 ? SKColors.White : SKColors.Blue));
+            Assert.That(bitmap.GetPixel(0, 1), Is.EqualTo(frameIndex == 0 ? SKColors.Black : SKColors.Lime));
+            Assert.That(bitmap.GetPixel(1, 1).Alpha, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void CompositesAnimatedLayersWithTransparency()
+    {
+        using var fixture = PackFixture.Create(
+            """{"type":"composite","models":[{"type":"model","model":"test:item/red"},{"type":"model","model":"test:item/animated"}]}""",
+            """{"animation":{"frames":[1,0]}}""");
+        var png = fixture.Extractor.Extract("test:item/icon");
+        using var bitmap = SKBitmap.Decode(png);
+        Assert.Multiple(() =>
+        {
+            Assert.That(bitmap.GetPixel(0, 0), Is.EqualTo(SKColors.Red));
+            Assert.That(bitmap.GetPixel(1, 0), Is.EqualTo(SKColors.Blue));
+            Assert.That(bitmap.GetPixel(1, 1).Alpha, Is.Zero);
+        });
     }
 
     [Test]
@@ -116,7 +141,7 @@ public class ResourcePackIconExtractorTests
             Extractor = new ResourcePackIconExtractor(archive);
         }
 
-        public static PackFixture Create(string itemModel, bool animated = false)
+        public static PackFixture Create(string itemModel, string animation = null)
         {
             var stream = new MemoryStream();
             using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -131,9 +156,15 @@ public class ResourcePackIconExtractorTests
                     """{"parent":"test:item/template","textures":{"icon":"test:item/red"}}""");
                 AddPng(archive, "red", new[] { SKColors.Red });
                 AddPng(archive, "blue", new[] { SKColors.Blue });
-                AddPng(archive, "animated", new[] { SKColors.Red, SKColors.Blue });
-                if (animated)
-                    Add(archive, "assets/test/textures/item/animated.png.mcmeta", """{"animation":{"frames":[0,1]}}""");
+                AddPng(archive, "animated", new[]
+                {
+                    SKColors.Red, SKColors.White,
+                    SKColors.Black, SKColors.Transparent,
+                    SKColors.Transparent, SKColors.Blue,
+                    SKColors.Lime, SKColors.Transparent
+                }, width: 2);
+                if (animation != null)
+                    Add(archive, "assets/test/textures/item/animated.png.mcmeta", animation);
             }
             stream.Position = 0;
             var readArchive = new ZipArchive(stream, ZipArchiveMode.Read);
@@ -156,11 +187,11 @@ public class ResourcePackIconExtractorTests
             writer.Write(value);
         }
 
-        private static void AddPng(ZipArchive archive, string name, IReadOnlyList<SKColor> colors)
+        private static void AddPng(ZipArchive archive, string name, IReadOnlyList<SKColor> colors, int width = 1)
         {
-            using var bitmap = new SKBitmap(1, colors.Count, true);
-            for (var y = 0; y < colors.Count; y++)
-                bitmap.SetPixel(0, y, colors[y]);
+            using var bitmap = new SKBitmap(width, colors.Count / width);
+            for (var index = 0; index < colors.Count; index++)
+                bitmap.SetPixel(index % width, index / width, colors[index]);
             using var image = SKImage.FromBitmap(bitmap);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
             using var target = archive.CreateEntry($"assets/test/textures/item/{name}.png").Open();

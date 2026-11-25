@@ -77,7 +77,7 @@ public sealed class ResourcePackIconExtractor
         if (layers.Count == 0)
             return null;
 
-        var result = new SKBitmap(layers.Max(layer => layer.Width), layers.Max(layer => layer.Height), true);
+        var result = new SKBitmap(layers.Max(layer => layer.Width), layers.Max(layer => layer.Height));
         using var canvas = new SKCanvas(result);
         canvas.Clear(SKColors.Transparent);
         foreach (var layer in layers)
@@ -120,11 +120,27 @@ public sealed class ResourcePackIconExtractor
         if (!entries.ContainsKey(path + ".mcmeta") || bitmap.Height <= bitmap.Width)
             return bitmap;
 
-        var firstFrame = new SKBitmap(bitmap.Width, bitmap.Width, true);
-        using (var canvas = new SKCanvas(firstFrame))
-            canvas.DrawBitmap(bitmap, new SKRect(0, 0, bitmap.Width, bitmap.Width));
-        bitmap.Dispose();
-        return firstFrame;
+        using (bitmap)
+        {
+            using var metadata = ReadJson(path + ".mcmeta");
+            var frameIndex = 0;
+            if (metadata.RootElement.TryGetProperty("animation", out var animation)
+                && animation.TryGetProperty("frames", out var frames) && frames.GetArrayLength() > 0)
+            {
+                var firstFrame = frames[0];
+                frameIndex = (firstFrame.ValueKind == JsonValueKind.Object ? firstFrame.GetProperty("index") : firstFrame).GetInt32();
+            }
+
+            var size = bitmap.Width;
+            if (frameIndex < 0 || frameIndex >= bitmap.Height / size)
+                throw new InvalidDataException($"Texture {path} has an invalid first frame index {frameIndex}.");
+
+            var frame = new SKBitmap();
+            if (bitmap.ExtractSubset(frame, new SKRectI(0, frameIndex * size, size, (frameIndex + 1) * size)))
+                return frame;
+            frame.Dispose();
+            throw new InvalidDataException($"Could not extract the first frame of texture {path}.");
+        }
     }
 
     private Dictionary<string, string> FindTextures(ResourceLocation model, HashSet<string> visited)
