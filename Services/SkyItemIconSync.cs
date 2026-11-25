@@ -22,6 +22,7 @@ namespace Coflnet.Sky.Items.Services;
 public sealed class SkyItemIconSync
 {
     private const string PacksUrl = "https://api.hypixel.net/v2/resources/packs";
+    private const string AnimatedDrillTag = "TITANIUM_DRILL_4";
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly IConfiguration configuration;
@@ -68,15 +69,18 @@ public sealed class SkyItemIconSync
             throw new InvalidDataException($"Resource-pack SHA-1 mismatch: expected {pack.Hash}, got {actualHash}.");
 
         var renderedModels = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        byte[] animatedDrill = null;
         using (var archive = new ZipArchive(new MemoryStream(packBytes, writable: false), ZipArchiveMode.Read))
         {
             var extractor = new ResourcePackIconExtractor(archive);
             foreach (var model in mappings.Values.Distinct(StringComparer.Ordinal))
                 renderedModels[model] = extractor.Extract(model);
+            if (mappings.TryGetValue(AnimatedDrillTag, out var drillModel))
+                animatedDrill = extractor.ExtractAnimatedGif(drillModel);
         }
 
         var failures = new ConcurrentBag<string>();
-        var completed = new ConcurrentBag<string>();
+        var completed = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var uploadBase = configuration["STATIC_S3_URL"]?.TrimEnd('/')
             ?? "http://static-s3.s3:8000";
         var concurrency = Math.Max(1, configuration.GetValue("ICON_SYNC_CONCURRENCY", 8));
@@ -87,17 +91,18 @@ public sealed class SkyItemIconSync
             MaxDegreeOfParallelism = concurrency
         }, async (mapping, token) =>
         {
-            var icon = renderedModels[mapping.Value];
+            var animation = mapping.Key == AnimatedDrillTag ? animatedDrill : null;
+            var icon = animation ?? renderedModels[mapping.Value];
             if (icon == null)
                 return;
             try
             {
                 using var content = new ByteArrayContent(icon);
-                content.Headers.ContentType = new("image/png");
-                var key = $"sky/icons/{Uri.EscapeDataString(mapping.Key)}";
+                content.Headers.ContentType = new(animation == null ? "image/png" : "image/gif");
+                var key = $"sky/icons/{Uri.EscapeDataString(mapping.Key)}" + (animation == null ? "" : ".gif");
                 using var response = await client.PutAsync($"{uploadBase}/objects/{key}", content, token);
                 response.EnsureSuccessStatusCode();
-                completed.Add(mapping.Key);
+                completed[mapping.Key] = key;
             }
             catch (Exception exception)
             {
@@ -122,18 +127,18 @@ public sealed class SkyItemIconSync
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value.ToString()))).ToLowerInvariant();
     }
 
-    private async Task UpdateIconUrls(IEnumerable<string> completedTags, CancellationToken cancellationToken)
+    private async Task UpdateIconUrls(IReadOnlyDictionary<string, string> completed, CancellationToken cancellationToken)
     {
         var iconBase = configuration["STATIC_ICON_BASE_URL"]?.TrimEnd('/')
             ?? "https://static.coflnet.com";
-        foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(completedTags.Distinct(), 100))
+        foreach (var batch in MoreLinq.Extensions.BatchExtension.Batch(completed.Keys, 100))
         {
             var tags = batch.ToList();
             using var scope = scopeFactory.CreateScope();
             using var context = scope.ServiceProvider.GetRequiredService<ItemDbContext>();
             var items = await context.Items.Where(item => tags.Contains(item.Tag)).ToListAsync(cancellationToken);
             foreach (var item in items)
-                item.IconUrl = $"{iconBase}/sky/icons/{Uri.EscapeDataString(item.Tag)}";
+                item.IconUrl = $"{iconBase}/{completed[item.Tag]}";
             await context.SaveChangesAsync(cancellationToken);
         }
     }

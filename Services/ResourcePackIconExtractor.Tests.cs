@@ -23,6 +23,7 @@ public class ResourcePackIconExtractorTests
             Assert.That(bitmap.Width, Is.EqualTo(1));
             Assert.That(bitmap.Height, Is.EqualTo(1));
             Assert.That(bitmap.GetPixel(0, 0), Is.EqualTo(SKColors.Red));
+            Assert.That(fixture.Extractor.ExtractAnimatedGif("test:item/icon"), Is.Null);
         });
     }
 
@@ -66,8 +67,39 @@ public class ResourcePackIconExtractorTests
             Assert.That(bitmap.GetPixel(0, 0).Alpha, Is.EqualTo(frameIndex == 0 ? byte.MaxValue : 0));
             Assert.That(bitmap.GetPixel(1, 0), Is.EqualTo(frameIndex == 0 ? SKColors.White : SKColors.Blue));
             Assert.That(bitmap.GetPixel(0, 1), Is.EqualTo(frameIndex == 0 ? SKColors.Black : SKColors.Lime));
-            Assert.That(bitmap.GetPixel(1, 1).Alpha, Is.Zero);
+            Assert.That(bitmap.GetPixel(1, 1).Alpha, Is.EqualTo(frameIndex == 0 ? byte.MaxValue : 0));
         });
+    }
+
+    [Test]
+    public void EncodesGifWithDeclaredFrameOrderDurationsAndTransparency()
+    {
+        using var fixture = PackFixture.Create(
+            """{"type":"composite","models":[{"type":"model","model":"test:item/red"},{"type":"model","model":"test:item/animated"}]}""",
+            """{"animation":{"frametime":2,"frames":[1,{"index":1,"time":3},0,1]}}""");
+        var gif = fixture.Extractor.ExtractAnimatedGif("test:item/icon");
+        using var data = SKData.CreateCopy(gif);
+        using var codec = SKCodec.Create(data);
+        Assert.Multiple(() =>
+        {
+            Assert.That(codec.EncodedFormat, Is.EqualTo(SKEncodedImageFormat.Gif));
+            Assert.That(codec.RepetitionCount, Is.EqualTo(-1));
+            Assert.That(codec.FrameInfo.Select(frame => frame.Duration), Is.EqualTo(new[] { 250, 100, 100 }));
+        });
+
+        var colors = new[] { SKColors.Blue, SKColors.White, SKColors.Blue };
+        for (var index = 0; index < colors.Length; index++)
+        {
+            using var bitmap = new SKBitmap(codec.Info.WithAlphaType(SKAlphaType.Premul));
+            Assert.That(codec.GetPixels(bitmap.Info, bitmap.GetPixels(), new SKCodecOptions(index)),
+                Is.EqualTo(SKCodecResult.Success));
+            Assert.Multiple(() =>
+            {
+                Assert.That(bitmap.GetPixel(0, 0), Is.EqualTo(SKColors.Red));
+                Assert.That(bitmap.GetPixel(1, 0), Is.EqualTo(colors[index]));
+                Assert.That(bitmap.GetPixel(1, 1).Alpha, Is.EqualTo(index == 1 ? byte.MaxValue : 0));
+            });
+        }
     }
 
     [Test]
@@ -159,7 +191,7 @@ public class ResourcePackIconExtractorTests
                 AddPng(archive, "animated", new[]
                 {
                     SKColors.Red, SKColors.White,
-                    SKColors.Black, SKColors.Transparent,
+                    SKColors.Black, SKColors.Yellow,
                     SKColors.Transparent, SKColors.Blue,
                     SKColors.Lime, SKColors.Transparent
                 }, width: 2);

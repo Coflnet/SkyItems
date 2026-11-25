@@ -4,6 +4,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using KGySoft.Drawing.Imaging;
+using KGySoft.Drawing.SkiaSharp;
 using SkiaSharp;
 
 namespace Coflnet.Sky.Items.Services;
@@ -19,15 +21,7 @@ public sealed class ResourcePackIconExtractor
 
     public byte[] Extract(string itemModel)
     {
-        var resource = ResourceLocation.Parse(itemModel, "minecraft");
-        if (resource.Namespace == "minecraft")
-            return null;
-
-        using var document = ReadJson($"assets/{resource.Namespace}/items/{resource.Path}.json");
-        if (!document.RootElement.TryGetProperty("model", out var model))
-            throw new InvalidDataException($"Item declaration {itemModel} has no model.");
-
-        using var bitmap = RenderNode(model, resource.Namespace);
+        using var bitmap = RenderItem(itemModel);
         if (bitmap == null)
             return null;
 
@@ -36,7 +30,88 @@ public sealed class ResourcePackIconExtractor
         return data.ToArray();
     }
 
-    private SKBitmap RenderNode(JsonElement node, string defaultNamespace)
+    public byte[] ExtractAnimatedGif(string itemModel)
+    {
+        // Use the first animated texture's timeline and keep the other layers on their first frames.
+        string animatedPath = null;
+        List<(int Index, int Ticks)> frames = null;
+        int SelectAnimation(string path, JsonElement animation, int frameCount, int firstIndex)
+        {
+            if (animatedPath == null)
+            {
+                var schedule = ReadAnimationFrames(animation, frameCount);
+                if (schedule.Count > 1)
+                {
+                    animatedPath = path;
+                    frames = schedule;
+                }
+            }
+            return firstIndex;
+        }
+
+        using var firstFrame = RenderItem(itemModel, SelectAnimation);
+        if (frames == null)
+            return null;
+
+        using var output = new MemoryStream();
+        using var encoder = new GifEncoder(output, new System.Drawing.Size(firstFrame.Width, firstFrame.Height))
+        {
+            RepeatCount = 0
+        };
+        var quantizer = OptimizedPaletteQuantizer.Octree().ConfigureBitLevel(8);
+        void AddFrame(SKBitmap bitmap, int ticks)
+        {
+            using var pixels = bitmap.GetReadableBitmapData();
+            using var indexed = pixels.Clone(KnownPixelFormat.Format8bppIndexed, quantizer);
+            // Each Minecraft tick is five centiseconds, the unit used by GIF delays.
+            encoder.AddImage(indexed, delay: ticks * 5, disposalMethod: GifGraphicDisposalMethod.RestoreToBackground);
+        }
+
+        AddFrame(firstFrame, frames[0].Ticks);
+        foreach (var (index, ticks) in frames.Skip(1))
+        {
+            using var frame = RenderItem(itemModel, (path, _, _, firstIndex) => path == animatedPath ? index : firstIndex);
+            AddFrame(frame, ticks);
+        }
+        encoder.FinalizeEncoding();
+        return output.ToArray();
+    }
+
+    private static List<(int Index, int Ticks)> ReadAnimationFrames(JsonElement animation, int frameCount)
+    {
+        var frameTime = animation.TryGetProperty("frametime", out var duration) ? duration.GetInt32() : 1;
+        var frames = animation.TryGetProperty("frames", out var declared) && declared.GetArrayLength() > 0
+            ? declared.EnumerateArray().Select(frame => frame.ValueKind == JsonValueKind.Object
+                ? (Index: frame.GetProperty("index").GetInt32(), Ticks: frame.TryGetProperty("time", out var time) ? time.GetInt32() : frameTime)
+                : (Index: frame.GetInt32(), Ticks: frameTime))
+            : Enumerable.Range(0, frameCount).Select(index => (Index: index, Ticks: frameTime));
+        var schedule = new List<(int Index, int Ticks)>();
+        foreach (var frame in frames)
+        {
+            if (schedule.Count > 0 && schedule[^1].Index == frame.Index)
+                schedule[^1] = (frame.Index, schedule[^1].Ticks + frame.Ticks);
+            else
+                schedule.Add(frame);
+        }
+        return schedule;
+    }
+
+    private delegate int FrameSelector(string path, JsonElement animation, int frameCount, int firstIndex);
+
+    private SKBitmap RenderItem(string itemModel, FrameSelector selectFrame = null)
+    {
+        var resource = ResourceLocation.Parse(itemModel, "minecraft");
+        if (resource.Namespace == "minecraft")
+            return null;
+
+        using var document = ReadJson($"assets/{resource.Namespace}/items/{resource.Path}.json");
+        if (!document.RootElement.TryGetProperty("model", out var model))
+            throw new InvalidDataException($"Item declaration {itemModel} has no model.");
+
+        return RenderNode(model, resource.Namespace, selectFrame);
+    }
+
+    private SKBitmap RenderNode(JsonElement node, string defaultNamespace, FrameSelector selectFrame)
     {
         var type = node.TryGetProperty("type", out var typeNode)
             ? typeNode.GetString()?.Replace("minecraft:", "", StringComparison.Ordinal)
@@ -44,11 +119,11 @@ public sealed class ResourcePackIconExtractor
 
         return type switch
         {
-            "model" => RenderModel(node.GetProperty("model").GetString(), defaultNamespace),
-            "select" => RenderNode(SelectGuiModel(node), defaultNamespace),
-            "condition" => RenderNode(node.GetProperty("on_false"), defaultNamespace),
-            "range_dispatch" => RenderNode(node.GetProperty("fallback"), defaultNamespace),
-            "composite" => Composite(node.GetProperty("models"), defaultNamespace),
+            "model" => RenderModel(node.GetProperty("model").GetString(), defaultNamespace, selectFrame),
+            "select" => RenderNode(SelectGuiModel(node), defaultNamespace, selectFrame),
+            "condition" => RenderNode(node.GetProperty("on_false"), defaultNamespace, selectFrame),
+            "range_dispatch" => RenderNode(node.GetProperty("fallback"), defaultNamespace, selectFrame),
+            "composite" => Composite(node.GetProperty("models"), defaultNamespace, selectFrame),
             _ => throw new NotSupportedException($"Unsupported item model type '{type}'.")
         };
     }
@@ -68,10 +143,10 @@ public sealed class ResourcePackIconExtractor
         return node.GetProperty("fallback");
     }
 
-    private SKBitmap Composite(JsonElement models, string defaultNamespace)
+    private SKBitmap Composite(JsonElement models, string defaultNamespace, FrameSelector selectFrame)
     {
         var layers = models.EnumerateArray()
-            .Select(model => RenderNode(model, defaultNamespace))
+            .Select(model => RenderNode(model, defaultNamespace, selectFrame))
             .Where(bitmap => bitmap != null)
             .ToList();
         if (layers.Count == 0)
@@ -88,7 +163,7 @@ public sealed class ResourcePackIconExtractor
         return result;
     }
 
-    private SKBitmap RenderModel(string modelName, string defaultNamespace)
+    private SKBitmap RenderModel(string modelName, string defaultNamespace, FrameSelector selectFrame)
     {
         var resource = ResourceLocation.Parse(modelName, defaultNamespace);
         if (resource.Namespace == "minecraft")
@@ -123,23 +198,27 @@ public sealed class ResourcePackIconExtractor
         using (bitmap)
         {
             using var metadata = ReadJson(path + ".mcmeta");
+            var size = bitmap.Width;
             var frameIndex = 0;
-            if (metadata.RootElement.TryGetProperty("animation", out var animation)
-                && animation.TryGetProperty("frames", out var frames) && frames.GetArrayLength() > 0)
+            if (metadata.RootElement.TryGetProperty("animation", out var animation))
             {
-                var firstFrame = frames[0];
-                frameIndex = (firstFrame.ValueKind == JsonValueKind.Object ? firstFrame.GetProperty("index") : firstFrame).GetInt32();
+                if (animation.TryGetProperty("frames", out var frames) && frames.GetArrayLength() > 0)
+                {
+                    var firstFrame = frames[0];
+                    frameIndex = (firstFrame.ValueKind == JsonValueKind.Object ? firstFrame.GetProperty("index") : firstFrame).GetInt32();
+                }
+                if (selectFrame != null)
+                    frameIndex = selectFrame(path, animation, bitmap.Height / size, frameIndex);
             }
 
-            var size = bitmap.Width;
             if (frameIndex < 0 || frameIndex >= bitmap.Height / size)
-                throw new InvalidDataException($"Texture {path} has an invalid first frame index {frameIndex}.");
+                throw new InvalidDataException($"Texture {path} has an invalid frame index {frameIndex}.");
 
             var frame = new SKBitmap();
             if (bitmap.ExtractSubset(frame, new SKRectI(0, frameIndex * size, size, (frameIndex + 1) * size)))
                 return frame;
             frame.Dispose();
-            throw new InvalidDataException($"Could not extract the first frame of texture {path}.");
+            throw new InvalidDataException($"Could not extract frame {frameIndex} of texture {path}.");
         }
     }
 
