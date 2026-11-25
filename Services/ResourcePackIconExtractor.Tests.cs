@@ -16,14 +16,14 @@ public class ResourcePackIconExtractorTests
     public void RendersOrdinaryModelWithUnnamespacedReference()
     {
         using var fixture = PackFixture.Create("""{"type":"model","model":"item/red"}""");
-        var png = fixture.Extractor.Extract("test:item/icon");
+        var (png, animated) = fixture.Extractor.ExtractIcon("test:item/icon");
         using var bitmap = SKBitmap.Decode(png);
         Assert.Multiple(() =>
         {
             Assert.That(bitmap.Width, Is.EqualTo(1));
             Assert.That(bitmap.Height, Is.EqualTo(1));
             Assert.That(bitmap.GetPixel(0, 0), Is.EqualTo(SKColors.Red));
-            Assert.That(fixture.Extractor.ExtractAnimatedGif("test:item/icon"), Is.Null);
+            Assert.That(animated, Is.False);
         });
     }
 
@@ -77,12 +77,14 @@ public class ResourcePackIconExtractorTests
         using var fixture = PackFixture.Create(
             """{"type":"composite","models":[{"type":"model","model":"test:item/red"},{"type":"model","model":"test:item/animated"}]}""",
             """{"animation":{"frametime":2,"frames":[1,{"index":1,"time":3},0,1]}}""");
-        var gif = fixture.Extractor.ExtractAnimatedGif("test:item/icon");
+        var (gif, animated) = fixture.Extractor.ExtractIcon("test:item/icon");
         using var data = SKData.CreateCopy(gif);
         using var codec = SKCodec.Create(data);
         Assert.Multiple(() =>
         {
+            Assert.That(animated, Is.True);
             Assert.That(codec.EncodedFormat, Is.EqualTo(SKEncodedImageFormat.Gif));
+            Assert.That(codec.Info.Size, Is.EqualTo(new SKSizeI(64, 64)));
             Assert.That(codec.RepetitionCount, Is.EqualTo(-1));
             Assert.That(codec.FrameInfo.Select(frame => frame.Duration), Is.EqualTo(new[] { 250, 100, 100 }));
         });
@@ -95,9 +97,38 @@ public class ResourcePackIconExtractorTests
                 Is.EqualTo(SKCodecResult.Success));
             Assert.Multiple(() =>
             {
-                Assert.That(bitmap.GetPixel(0, 0), Is.EqualTo(SKColors.Red));
-                Assert.That(bitmap.GetPixel(1, 0), Is.EqualTo(colors[index]));
-                Assert.That(bitmap.GetPixel(1, 1).Alpha, Is.EqualTo(index == 1 ? byte.MaxValue : 0));
+                Assert.That(bitmap.GetPixel(31, 31), Is.EqualTo(SKColors.Red));
+                Assert.That(bitmap.GetPixel(32, 31), Is.EqualTo(colors[index]));
+                Assert.That(bitmap.GetPixel(63, 0), Is.EqualTo(colors[index]));
+                Assert.That(bitmap.GetPixel(32, 32).Alpha, Is.EqualTo(index == 1 ? byte.MaxValue : 0));
+            });
+        }
+    }
+
+    [Test]
+    public void InterpolatesRgbBetweenDeclaredFramesAndPreservesHoldsAndSourceAlpha()
+    {
+        using var fixture = PackFixture.Create(
+            """{"type":"model","model":"test:item/animated"}""",
+            """{"animation":{"frametime":2,"interpolate":true,"frames":[1,{"index":1,"time":3},0]}}""");
+        var (gif, animated) = fixture.Extractor.ExtractIcon("test:item/icon");
+        using var data = SKData.CreateCopy(gif);
+        using var codec = SKCodec.Create(data);
+        Assert.That(animated, Is.True);
+        Assert.That(codec.FrameInfo.Select(frame => frame.Duration), Is.EqualTo(new[] { 150, 50, 50, 50, 50 }));
+
+        var colors = new[] { SKColors.Blue, new SKColor(85, 85, 255), new SKColor(170, 170, 255),
+            SKColors.White, new SKColor(127, 127, 255) };
+        var alphas = new[] { 0, 0, 0, 255, 255 };
+        for (var index = 0; index < colors.Length; index++)
+        {
+            using var bitmap = new SKBitmap(codec.Info.WithAlphaType(SKAlphaType.Premul));
+            Assert.That(codec.GetPixels(bitmap.Info, bitmap.GetPixels(), new SKCodecOptions(index)),
+                Is.EqualTo(SKCodecResult.Success));
+            Assert.Multiple(() =>
+            {
+                Assert.That(bitmap.GetPixel(32, 0), Is.EqualTo(colors[index]));
+                Assert.That(bitmap.GetPixel(0, 0).Alpha, Is.EqualTo(alphas[index]));
             });
         }
     }
@@ -151,7 +182,7 @@ public class ResourcePackIconExtractorTests
         var extractor = new ResourcePackIconExtractor(pack);
 
         foreach (var model in models)
-            Assert.That(extractor.Extract(model), Is.Not.Empty, model);
+            Assert.That(extractor.ExtractIcon(model).Image, Is.Not.Empty, model);
     }
 
     private static SKColor Pixel(byte[] png)

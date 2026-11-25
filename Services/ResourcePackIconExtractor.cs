@@ -22,6 +22,11 @@ public sealed class ResourcePackIconExtractor
     public byte[] Extract(string itemModel)
     {
         using var bitmap = RenderItem(itemModel);
+        return EncodePng(bitmap);
+    }
+
+    private static byte[] EncodePng(SKBitmap bitmap)
+    {
         if (bitmap == null)
             return null;
 
@@ -30,12 +35,12 @@ public sealed class ResourcePackIconExtractor
         return data.ToArray();
     }
 
-    public byte[] ExtractAnimatedGif(string itemModel)
+    public (byte[] Image, bool Animated) ExtractIcon(string itemModel)
     {
         // Use the first animated texture's timeline and keep the other layers on their first frames.
         string animatedPath = null;
-        List<(int Index, int Ticks)> frames = null;
-        int SelectAnimation(string path, JsonElement animation, int frameCount, int firstIndex)
+        List<(AnimationSample Sample, int Ticks)> frames = null;
+        AnimationSample SelectAnimation(string path, JsonElement animation, int frameCount, int firstIndex)
         {
             if (animatedPath == null)
             {
@@ -46,57 +51,82 @@ public sealed class ResourcePackIconExtractor
                     frames = schedule;
                 }
             }
-            return firstIndex;
+            return new AnimationSample(firstIndex);
         }
 
         using var firstFrame = RenderItem(itemModel, SelectAnimation);
         if (frames == null)
-            return null;
+            return (EncodePng(firstFrame), false);
 
+        const int minimumGifSize = 64;
+        var longestEdge = Math.Max(firstFrame.Width, firstFrame.Height);
+        var upscale = longestEdge < minimumGifSize;
+        var size = upscale
+            ? new System.Drawing.Size(Math.Max(1, firstFrame.Width * minimumGifSize / longestEdge),
+                Math.Max(1, firstFrame.Height * minimumGifSize / longestEdge))
+            : new System.Drawing.Size(firstFrame.Width, firstFrame.Height);
         using var output = new MemoryStream();
-        using var encoder = new GifEncoder(output, new System.Drawing.Size(firstFrame.Width, firstFrame.Height))
+        using var encoder = new GifEncoder(output, size)
         {
             RepeatCount = 0
         };
         var quantizer = OptimizedPaletteQuantizer.Octree().ConfigureBitLevel(8);
         void AddFrame(SKBitmap bitmap, int ticks)
         {
-            using var pixels = bitmap.GetReadableBitmapData();
+            using var scaled = upscale
+                ? bitmap.Resize(bitmap.Info.WithSize(size.Width, size.Height), new SKSamplingOptions(SKFilterMode.Nearest))
+                    ?? throw new InvalidOperationException("Could not resize the GIF frame.")
+                : null;
+            using var pixels = (scaled ?? bitmap).GetReadableBitmapData();
             using var indexed = pixels.Clone(KnownPixelFormat.Format8bppIndexed, quantizer);
             // Each Minecraft tick is five centiseconds, the unit used by GIF delays.
             encoder.AddImage(indexed, delay: ticks * 5, disposalMethod: GifGraphicDisposalMethod.RestoreToBackground);
         }
 
         AddFrame(firstFrame, frames[0].Ticks);
-        foreach (var (index, ticks) in frames.Skip(1))
+        foreach (var (sample, ticks) in frames.Skip(1))
         {
-            using var frame = RenderItem(itemModel, (path, _, _, firstIndex) => path == animatedPath ? index : firstIndex);
+            using var frame = RenderItem(itemModel, (path, _, _, firstIndex) =>
+                path == animatedPath ? sample : new AnimationSample(firstIndex));
             AddFrame(frame, ticks);
         }
         encoder.FinalizeEncoding();
-        return output.ToArray();
+        return (output.ToArray(), true);
     }
 
-    private static List<(int Index, int Ticks)> ReadAnimationFrames(JsonElement animation, int frameCount)
+    private static List<(AnimationSample Sample, int Ticks)> ReadAnimationFrames(JsonElement animation, int frameCount)
     {
         var frameTime = animation.TryGetProperty("frametime", out var duration) ? duration.GetInt32() : 1;
-        var frames = animation.TryGetProperty("frames", out var declared) && declared.GetArrayLength() > 0
+        var frames = (animation.TryGetProperty("frames", out var declared) && declared.GetArrayLength() > 0
             ? declared.EnumerateArray().Select(frame => frame.ValueKind == JsonValueKind.Object
                 ? (Index: frame.GetProperty("index").GetInt32(), Ticks: frame.TryGetProperty("time", out var time) ? time.GetInt32() : frameTime)
                 : (Index: frame.GetInt32(), Ticks: frameTime))
-            : Enumerable.Range(0, frameCount).Select(index => (Index: index, Ticks: frameTime));
-        var schedule = new List<(int Index, int Ticks)>();
-        foreach (var frame in frames)
+            : Enumerable.Range(0, frameCount).Select(index => (Index: index, Ticks: frameTime))).ToArray();
+        var interpolate = animation.TryGetProperty("interpolate", out var interpolation) && interpolation.ValueKind == JsonValueKind.True;
+        var schedule = new List<(AnimationSample Sample, int Ticks)>();
+        void AddSample(AnimationSample sample, int ticks)
         {
-            if (schedule.Count > 0 && schedule[^1].Index == frame.Index)
-                schedule[^1] = (frame.Index, schedule[^1].Ticks + frame.Ticks);
+            if (schedule.Count > 0 && schedule[^1].Sample == sample)
+                schedule[^1] = (sample, schedule[^1].Ticks + ticks);
             else
-                schedule.Add(frame);
+                schedule.Add((sample, ticks));
+        }
+        for (var i = 0; i < frames.Length; i++)
+        {
+            var (index, ticks) = frames[i];
+            var nextIndex = frames[(i + 1) % frames.Length].Index;
+            var blend = interpolate && nextIndex != index && ticks > 1;
+            AddSample(new AnimationSample(index), blend ? 1 : ticks);
+            if (blend)
+                for (var tick = 1; tick < ticks; tick++)
+                    AddSample(new AnimationSample(index, nextIndex, (double)tick / ticks), 1);
         }
         return schedule;
     }
 
-    private delegate int FrameSelector(string path, JsonElement animation, int frameCount, int firstIndex);
+    private readonly record struct AnimationSample(int Index, int NextIndex = 0, double Blend = 0);
+
+    private delegate AnimationSample FrameSelector(string path, JsonElement animation, int frameCount, int firstIndex);
 
     private SKBitmap RenderItem(string itemModel, FrameSelector selectFrame = null)
     {
@@ -199,27 +229,53 @@ public sealed class ResourcePackIconExtractor
         {
             using var metadata = ReadJson(path + ".mcmeta");
             var size = bitmap.Width;
-            var frameIndex = 0;
+            AnimationSample sample = default;
             if (metadata.RootElement.TryGetProperty("animation", out var animation))
             {
+                var firstIndex = 0;
                 if (animation.TryGetProperty("frames", out var frames) && frames.GetArrayLength() > 0)
                 {
                     var firstFrame = frames[0];
-                    frameIndex = (firstFrame.ValueKind == JsonValueKind.Object ? firstFrame.GetProperty("index") : firstFrame).GetInt32();
+                    firstIndex = (firstFrame.ValueKind == JsonValueKind.Object ? firstFrame.GetProperty("index") : firstFrame).GetInt32();
                 }
-                if (selectFrame != null)
-                    frameIndex = selectFrame(path, animation, bitmap.Height / size, frameIndex);
+                sample = selectFrame?.Invoke(path, animation, bitmap.Height / size, firstIndex) ?? new AnimationSample(firstIndex);
             }
 
-            if (frameIndex < 0 || frameIndex >= bitmap.Height / size)
-                throw new InvalidDataException($"Texture {path} has an invalid frame index {frameIndex}.");
+            if (sample.Index < 0 || sample.Index >= bitmap.Height / size)
+                throw new InvalidDataException($"Texture {path} has an invalid frame index {sample.Index}.");
+
+            if (sample.Blend > 0)
+            {
+                if (sample.NextIndex < 0 || sample.NextIndex >= bitmap.Height / size)
+                    throw new InvalidDataException($"Texture {path} has an invalid frame index {sample.NextIndex}.");
+                return BlendFrames(bitmap, sample);
+            }
 
             var frame = new SKBitmap();
-            if (bitmap.ExtractSubset(frame, new SKRectI(0, frameIndex * size, size, (frameIndex + 1) * size)))
+            var top = sample.Index * size;
+            if (bitmap.ExtractSubset(frame, new SKRectI(0, top, size, top + size)))
                 return frame;
             frame.Dispose();
-            throw new InvalidDataException($"Could not extract frame {frameIndex} of texture {path}.");
+            throw new InvalidDataException($"Could not extract frame {sample.Index} of texture {path}.");
         }
+    }
+
+    private static SKBitmap BlendFrames(SKBitmap bitmap, AnimationSample sample)
+    {
+        var size = bitmap.Width;
+        var frame = new SKBitmap(size, size);
+        byte Blend(byte from, byte to) => (byte)(from + (to - from) * sample.Blend);
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                var from = bitmap.GetPixel(x, sample.Index * size + y);
+                var to = bitmap.GetPixel(x, sample.NextIndex * size + y);
+                frame.SetPixel(x, y, new SKColor(Blend(from.Red, to.Red), Blend(from.Green, to.Green),
+                    Blend(from.Blue, to.Blue), from.Alpha));
+            }
+        }
+        return frame;
     }
 
     private Dictionary<string, string> FindTextures(ResourceLocation model, HashSet<string> visited)

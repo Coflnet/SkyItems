@@ -22,7 +22,6 @@ namespace Coflnet.Sky.Items.Services;
 public sealed class SkyItemIconSync
 {
     private const string PacksUrl = "https://api.hypixel.net/v2/resources/packs";
-    private const string AnimatedDrillTag = "TITANIUM_DRILL_4";
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly IConfiguration configuration;
@@ -68,15 +67,12 @@ public sealed class SkyItemIconSync
         if (!string.Equals(actualHash, pack.Hash, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException($"Resource-pack SHA-1 mismatch: expected {pack.Hash}, got {actualHash}.");
 
-        var renderedModels = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        byte[] animatedDrill = null;
+        var renderedModels = new Dictionary<string, (byte[] Image, bool Animated)>(StringComparer.Ordinal);
         using (var archive = new ZipArchive(new MemoryStream(packBytes, writable: false), ZipArchiveMode.Read))
         {
             var extractor = new ResourcePackIconExtractor(archive);
             foreach (var model in mappings.Values.Distinct(StringComparer.Ordinal))
-                renderedModels[model] = extractor.Extract(model);
-            if (mappings.TryGetValue(AnimatedDrillTag, out var drillModel))
-                animatedDrill = extractor.ExtractAnimatedGif(drillModel);
+                renderedModels[model] = extractor.ExtractIcon(model);
         }
 
         var failures = new ConcurrentBag<string>();
@@ -91,15 +87,16 @@ public sealed class SkyItemIconSync
             MaxDegreeOfParallelism = concurrency
         }, async (mapping, token) =>
         {
-            var animation = mapping.Key == AnimatedDrillTag ? animatedDrill : null;
-            var icon = animation ?? renderedModels[mapping.Value];
+            var (icon, animated) = renderedModels[mapping.Value];
             if (icon == null)
                 return;
             try
             {
                 using var content = new ByteArrayContent(icon);
-                content.Headers.ContentType = new(animation == null ? "image/png" : "image/gif");
-                var key = $"sky/icons/{Uri.EscapeDataString(mapping.Key)}" + (animation == null ? "" : ".gif");
+                content.Headers.ContentType = new(animated ? "image/gif" : "image/png");
+                var key = $"sky/icons/{Uri.EscapeDataString(mapping.Key)}";
+                if (animated)
+                    key += $"-{Convert.ToHexStringLower(SHA256.HashData(icon))}.gif";
                 using var response = await client.PutAsync($"{uploadBase}/objects/{key}", content, token);
                 response.EnsureSuccessStatusCode();
                 completed[mapping.Key] = key;
